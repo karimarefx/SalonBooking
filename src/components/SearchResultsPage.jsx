@@ -1,0 +1,573 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useBooking } from '../context/BookingContext';
+
+const salonsData = [
+  {
+    id: 'maison-de-beaute',
+    desktopName: 'Maison de Beauté',
+    mobileName: 'Lumière Hair',
+    locationDesktop: 'Soho, Manhattan • 0.8 mi',
+    locationMobile: '2.5 mi • Westside',
+    aboutDesktop: 'An exclusive sanctuary offering bespoke color and precision cutting. Experience unparalleled luxury in the heart of Soho with our master stylists.',
+    aboutMobile: 'Holistic boutique specializing in premium styles, extensions, and organic treatments. Professional services with a luxurious touch.',
+    desktopImg: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAjHFvOUoUFzcS9fm-il0JQPCA529pBB_3DI0qY_gtHtKGy-8P54l0Ij2n9cm_XfVbJtKWqRffeY0Gebziv7yabVA4sYAz60Afcf_jfe2euUjzXZycXbIrrBhZZotrOTfxM4F5psFcW1wp_ROehfPfemcY1A7KiiH5Gr5_kkhR7OMqSN5VwtVLCwnEvIttzOUzdb8z9OM02DuNnl8meiv58KhlablTAOIyu5AGEZAQ6C1tTtnA0x4BeWDe6hWoaJ2whOo0ui8vu0tM',
+    mobileImg: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDVCze6kZLty_0Bmrj6koOAilWlJpjL59mLZFYUxwWw1OIvaHKlpT1f7LqtqsNYn6Nyegt49jdjbXD-4VMSJ1o0mF5f2VxQmJPXPfqtd3jYJJqRhVeVK0_46J0Ycp--FAyPuTgB_u4kCe4UE9h4aVcGiM4ffScxAx8sxKy0c8iJ2EhhtsnvAIPpHoOjqrfwkZSTIN0uTOexr6kOXgTtxgzJbqpCvjzZvjV7jKRTyF5NFPa3E0lCf3M66sYJA1TXygjfJqFT2JUs-FM',
+    rating: '4.9',
+    reviews: '84',
+    tags: ['Balayage Specialist', 'Extensions', 'Olaplex', 'Haircut', 'Color', 'Highlights'],
+    nextAvailable: 'Tomorrow, 10:00 AM',
+    nextAvailableMobile: 'Today, 3:30 PM',
+    priceInfo: '$$$ • Haircuts from $150',
+    priceInfoMobile: 'from $65'
+  },
+  {
+    id: 'aura-studio',
+    desktopName: 'Aura Atelier',
+    mobileName: 'AURA Studio',
+    locationDesktop: 'Tribeca, Manhattan • 1.2 mi',
+    locationMobile: '1.2 mi • Downtown',
+    aboutDesktop: 'Where artistry meets wellness. Our holistic approach ensures not just beautiful hair, but a rejuvenating experience utilizing organic, sustainably sourced products.',
+    aboutMobile: 'A modern, high-end hair studio featuring minimalist decor and elegant styling stations. Serene, professional and sophisticated wellness experiences.',
+    desktopImg: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCYtWqmrU_PEdXrU4UF6K2acuMradFY2IuOsE0TZTXUiShdbnCg680Y5a-zVGdV8osXSPRK7D-SQ_hGk4bYQdMxi-0Ls50rp4xjko_awWKkC-y3owP9cgk1NPrqBye6xZ7gEoTGPSXJmeDbilzXg5e-JBEMTO9I50eSxhSoT46uGvLvHpTamyuRyNQqTDg19kTrPlBx7E32tSn5tMNkS_VVistCXErX_d3R14sUYzvpr3vSZhq39B60P5NXH_64OzsBzCOMWN5o1VU',
+    mobileImg: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCm-EYAa-xTQNlC7SCPVLdxy-DUxF8kXjvqF0AOmV5C9emopIrZ4x3yV15Cok-Ir2Zm-7izxK104i0I4q8vn58hzuWJt8TItPZHqyJPlA-ftq_Dv85V6CG4seKrw2UYIxYn6bb52GUfMaBpQNIGVbUL7TONVe45lyXdTwU_11vPpkRcvogqyponuXYkyFUqDqQeQeyZ1iEctRWCYuqGFrHlgcOo4U2lRsqJV0PdOCYil90Qbb29Sbq6Aj_Mx4LzDoVkX67cUHIxfE8',
+    rating: '4.8',
+    reviews: '128',
+    tags: ['Organic Color', 'Scalp Therapy', 'Cut & Style', 'Haircut', 'Color', 'Treatments'],
+    nextAvailable: 'Today, 3:30 PM',
+    nextAvailableMobile: 'Tomorrow, 10:00 AM',
+    priceInfo: '$$$ • Haircuts from $130',
+    priceInfoMobile: 'from $85'
+  }
+];
+
+const SearchResultsPage = () => {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParamsState] = useSearchParams();
+  const { searchQuery, setSearchQuery, searchLocation, setSearchLocation, fetchSalons, clientInfo } = useBooking();
+  
+  // Local state for filters and UI toggle
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'map'
+  const [salons, setSalons] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Sync parameters from context or URL search params
+  const [queryInput, setQueryInput] = useState(searchParams.get('query') || searchQuery || 'Hair Salon');
+  const [locationInput, setLocationInput] = useState(searchParams.get('location') || searchLocation || 'New York');
+
+  useEffect(() => {
+    const loadSalons = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchSalons();
+        setSalons(data || []);
+      } catch (err) {
+        console.error('Failed to load salons from Supabase:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadSalons();
+  }, []);
+
+  useEffect(() => {
+    const q = searchParams.get('query');
+    const loc = searchParams.get('location');
+    if (q) {
+      setSearchQuery(q);
+      setQueryInput(q);
+    }
+    if (loc) {
+      setSearchLocation(loc);
+      setLocationInput(loc);
+    }
+  }, [searchParams]);
+
+  const handleSearchSubmit = (e) => {
+    if (e) e.preventDefault();
+    setSearchQuery(queryInput);
+    setSearchLocation(locationInput);
+    setSearchParamsState({ query: queryInput, location: locationInput });
+  };
+
+  const handleSalonSelect = (id) => {
+    navigate(`/salon/${id}`);
+  };
+
+  const currentQuery = searchParams.get('query') || searchQuery || '';
+
+  const filteredSalons = salons.filter(s => {
+    if (!currentQuery) return true;
+    const q = currentQuery.toLowerCase();
+    return (
+      (s.name && s.name.toLowerCase().includes(q)) ||
+      (s.about && s.about.toLowerCase().includes(q)) ||
+      (s.tags && s.tags.some(tag => tag.toLowerCase().includes(q)))
+    );
+  });
+
+  return (
+    <div className="min-h-screen bg-surface text-on-surface font-body-md text-body-md antialiased flex flex-col pb-[80px] md:pb-0">
+      
+      {/* Header (Desktop: full-width search summary; Mobile: search header) */}
+      <header className="bg-surface-container-lowest sticky top-0 z-40 border-b border-outline-variant/30 shadow-sm transition-transform duration-200">
+        
+        {/* Desktop Header Navigation */}
+        <div className="hidden md:flex max-w-[1200px] mx-auto px-margin-desktop h-20 items-center justify-between gap-6">
+          <div className="flex items-center gap-8 flex-1">
+            <a 
+              className="font-display-lg text-display-lg text-primary tracking-tight cursor-pointer"
+              onClick={() => navigate('/')}
+            >
+              AURA
+            </a>
+            {/* Search Bar in Header */}
+            <form onSubmit={handleSearchSubmit} className="flex relative flex-1 max-w-lg items-center border-b border-outline-variant focus-within:border-primary transition-colors pb-1">
+              <span className="material-symbols-outlined text-secondary mr-2">search</span>
+              <input 
+                className="bg-transparent border-none focus:ring-0 p-0 font-body-md text-body-md text-on-surface w-1/3 outline-none" 
+                placeholder="Service" 
+                type="text" 
+                value={queryInput}
+                onChange={(e) => setQueryInput(e.target.value)}
+              />
+              <div className="h-4 w-px bg-outline-variant mx-3"></div>
+              <span class="material-symbols-outlined text-secondary mr-2">location_on</span>
+              <input 
+                className="bg-transparent border-none focus:ring-0 p-0 font-body-md text-body-md text-on-surface flex-1 outline-none" 
+                placeholder="Location" 
+                type="text" 
+                value={locationInput}
+                onChange={(e) => setLocationInput(e.target.value)}
+              />
+              <button type="submit" className="hidden"></button>
+            </form>
+          </div>
+          <nav className="hidden lg:flex items-center gap-8 font-body-md">
+            <button className="text-primary font-semibold border-b-2 border-primary pb-1 hover:text-primary-container transition-colors duration-300" onClick={() => navigate('/')}>Explore</button>
+            <button className="text-secondary font-medium hover:text-primary-container transition-colors duration-300" onClick={() => navigate('/specials')}>Specials</button>
+            <button className="text-secondary font-medium hover:text-primary-container transition-colors duration-300" onClick={() => navigate('/about')}>About</button>
+          </nav>
+          <div className="flex items-center gap-6">
+            {clientInfo?.email ? (
+              <button className="font-label-lg text-label-lg text-primary hover:text-primary-container transition-colors" onClick={() => navigate('/owner/dashboard')}>Owner Dashboard</button>
+            ) : (
+              <button className="font-label-lg text-label-lg text-primary hover:text-primary-container transition-colors" onClick={() => navigate('/owner/portal')}>List Your Salon</button>
+            )}
+            {clientInfo?.email ? (
+              <button className="font-label-lg text-label-lg text-primary hover:text-primary-container transition-colors" onClick={() => navigate('/account/bookings')}>{clientInfo.name || 'Account'}</button>
+            ) : (
+              <button className="font-label-lg text-label-lg text-primary hover:text-primary-container transition-colors" onClick={() => navigate('/login')}>Sign In</button>
+            )}
+            <div className="flex items-center gap-4">
+              <button aria-label="calendar_today" onClick={() => navigate(clientInfo?.email ? '/account/bookings' : '/login')} className="material-symbols-outlined text-primary hover:text-primary-container transition-colors duration-300 active:scale-95">calendar_today</button>
+              <button aria-label="account_circle" onClick={() => navigate(clientInfo?.email ? '/account/bookings' : '/login')} className="material-symbols-outlined text-primary hover:text-primary-container transition-colors duration-300 active:scale-95">account_circle</button>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile Header (Search/Location & Filter Drawer trigger) */}
+        <div className="md:hidden flex flex-col gap-base px-margin-mobile py-stack-sm">
+          <div className="flex items-center justify-between">
+            <button 
+              aria-label="Go back" 
+              className="text-on-surface p-2 -ml-2 rounded-full hover:bg-surface-container transition-colors"
+              onClick={() => navigate('/')}
+            >
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'wght' 300" }}>arrow_back</span>
+            </button>
+            <form onSubmit={handleSearchSubmit} className="flex-1 px-4">
+              <div className="relative w-full">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]" style={{ fontVariationSettings: "'wght' 300" }}>search</span>
+                <input 
+                  className="w-full bg-surface-container pl-10 pr-4 py-2 rounded-full font-body-sm text-body-sm text-on-surface border-none focus:ring-1 focus:ring-primary-container outline-none" 
+                  placeholder="Search..." 
+                  type="text" 
+                  value={queryInput}
+                  onChange={(e) => setQueryInput(e.target.value)}
+                />
+              </div>
+            </form>
+            <button 
+              aria-label="Filters" 
+              className="text-on-surface p-2 -mr-2 rounded-full hover:bg-surface-container transition-colors relative"
+              onClick={() => setIsFilterDrawerOpen(true)}
+            >
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'wght' 300" }}>tune</span>
+              <span className="absolute top-1 right-1 w-2 h-2 bg-primary-container rounded-full"></span>
+            </button>
+          </div>
+          <div className="flex items-center justify-between mt-2">
+            <p className="font-body-sm text-body-sm text-on-surface-variant">Showing 24 results</p>
+            <div className="flex bg-surface-container rounded-full p-1 border border-outline-variant/30">
+              <button 
+                className={`px-4 py-1.5 rounded-full font-label-md text-label-md transition-all flex items-center gap-1 ${viewMode === 'list' ? 'bg-surface-container-lowest text-on-surface shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
+                onClick={() => setViewMode('list')}
+              >
+                <span className="material-symbols-outlined text-[16px]">format_list_bulleted</span> List
+              </button>
+              <button 
+                className={`px-4 py-1.5 rounded-full font-label-md text-label-md transition-all flex items-center gap-1 ${viewMode === 'map' ? 'bg-surface-container-lowest text-on-surface shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
+                onClick={() => setViewMode('map')}
+              >
+                <span className="material-symbols-outlined text-[16px]">map</span> Map
+              </button>
+            </div>
+          </div>
+          {/* Quick Filters Chips */}
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-margin-mobile px-margin-mobile">
+            <button className="shrink-0 px-4 py-1.5 rounded-full border border-primary-container bg-secondary-container font-label-md text-label-md text-on-secondary-container">Open Now</button>
+            <button className="shrink-0 px-4 py-1.5 rounded-full border border-outline-variant bg-surface-container-lowest font-label-md text-label-md text-on-surface-variant">Top Rated</button>
+            <button className="shrink-0 px-4 py-1.5 rounded-full border border-outline-variant bg-surface-container-lowest font-label-md text-label-md text-on-surface-variant">Coloring</button>
+            <button className="shrink-0 px-4 py-1.5 rounded-full border border-outline-variant bg-surface-container-lowest font-label-md text-label-md text-on-surface-variant">Extensions</button>
+          </div>
+        </div>
+
+      </header>
+
+      {/* Main Content Area */}
+      <main className="flex-1 w-full max-w-[1200px] mx-auto px-margin-mobile md:px-margin-desktop py-stack-md lg:py-stack-lg flex flex-col lg:flex-row gap-gutter relative">
+        
+        {/* DESKTOP FILTER SIDEBAR (Hidden on Mobile) */}
+        <aside className="hidden lg:flex w-64 flex-shrink-0 flex-col gap-8 sticky top-[100px] h-fit">
+          <div className="border-b border-surface-variant pb-6">
+            <h3 className="font-label-lg text-label-lg text-on-surface mb-4 tracking-wide uppercase">Services</h3>
+            <div className="flex flex-col gap-3">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input defaultChecked className="w-4 h-4 rounded-sm border-outline-variant text-primary-container focus:ring-primary-container bg-transparent" type="checkbox" />
+                <span className="font-body-sm text-body-sm text-on-surface-variant group-hover:text-primary transition-colors">Haircut &amp; Styling</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input defaultChecked className="w-4 h-4 rounded-sm border-outline-variant text-primary-container focus:ring-primary-container bg-transparent" type="checkbox" />
+                <span className="font-body-sm text-body-sm text-on-surface-variant group-hover:text-primary transition-colors">Color &amp; Highlights</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input className="w-4 h-4 rounded-sm border-outline-variant text-primary-container focus:ring-primary-container bg-transparent" type="checkbox" />
+                <span className="font-body-sm text-body-sm text-on-surface-variant group-hover:text-primary transition-colors">Extensions</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input className="w-4 h-4 rounded-sm border-outline-variant text-primary-container focus:ring-primary-container bg-transparent" type="checkbox" />
+                <span className="font-body-sm text-body-sm text-on-surface-variant group-hover:text-primary transition-colors">Treatments</span>
+              </label>
+            </div>
+          </div>
+          <div className="border-b border-surface-variant pb-6">
+            <h3 className="font-label-lg text-label-lg text-on-surface mb-4 tracking-wide uppercase">Price Range</h3>
+            <div className="flex gap-2">
+              <button className="flex-1 py-2 border border-outline-variant rounded-DEFAULT font-label-md text-label-md text-on-surface-variant hover:border-primary hover:text-primary transition-colors">$$</button>
+              <button className="flex-1 py-2 border border-primary bg-primary-fixed text-on-primary-fixed rounded-DEFAULT font-label-md text-label-md transition-colors">$$$</button>
+              <button className="flex-1 py-2 border border-outline-variant rounded-DEFAULT font-label-md text-label-md text-on-surface-variant hover:border-primary hover:text-primary transition-colors">$$$$</button>
+            </div>
+          </div>
+          <div className="border-b border-surface-variant pb-6">
+            <h3 className="font-label-lg text-label-lg text-on-surface mb-4 tracking-wide uppercase">Rating</h3>
+            <div className="flex flex-col gap-3">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input defaultChecked className="w-4 h-4 border-outline-variant text-primary-container focus:ring-primary-container bg-transparent" name="rating" type="radio" />
+                <span className="flex items-center gap-1 font-body-sm text-body-sm text-on-surface-variant">
+                  4.5+ <span className="material-symbols-outlined text-[16px] text-primary-container" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                </span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input className="w-4 h-4 border-outline-variant text-primary-container focus:ring-primary-container bg-transparent" name="rating" type="radio" />
+                <span className="flex items-center gap-1 font-body-sm text-body-sm text-on-surface-variant">
+                  4.0+ <span className="material-symbols-outlined text-[16px] text-primary-container" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                </span>
+              </label>
+            </div>
+          </div>
+        </aside>
+
+        {/* DESKTOP MAIN RESULTS (and Mobile List View) */}
+        <section className={`flex-1 flex-col gap-6 ${viewMode === 'list' ? 'flex' : 'hidden md:flex'}`}>
+          
+          {/* Breadcrumb / Back button */}
+          <div className="hidden md:flex items-center gap-2 text-body-sm text-on-surface-variant">
+            <span className="cursor-pointer hover:text-primary transition-colors" onClick={() => navigate('/')}>Home</span>
+            <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+            <span className="text-primary font-semibold">Search Results</span>
+          </div>
+
+          {/* Header Summary for Desktop */}
+          <div className="hidden md:flex items-center justify-between mb-2">
+            <h1 className="font-headline-lg text-headline-lg text-on-surface">124 Premium Salons in {locationInput}</h1>
+            <div className="flex items-center gap-2">
+              <span className="font-body-sm text-body-sm text-on-surface-variant">Sort by:</span>
+              <select className="bg-transparent border-none focus:ring-0 p-0 font-label-md text-label-md text-primary cursor-pointer pr-4">
+                <option>Recommended</option>
+                <option>Highest Rated</option>
+                <option>Distance</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Desktop Result Cards / Mobile Cards List */}
+          <div className="flex flex-col gap-6">
+            
+            {filteredSalons.map(s => (
+              <article key={s.id} className="flex flex-col sm:flex-row bg-surface-container-lowest rounded-lg overflow-hidden border border-outline-variant/30 transition-all duration-500 hover:shadow-[0_12px_40px_rgba(197,160,89,0.15)] group">
+                <div 
+                  className="sm:w-[280px] h-56 sm:h-auto relative overflow-hidden shrink-0 cursor-pointer"
+                  onClick={() => handleSalonSelect(s.id)}
+                >
+                  {/* Desktop/Mobile Image */}
+                  <img 
+                    alt={s.name} 
+                    className="hidden md:block w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                    src={s.image_url}
+                  />
+                  <img 
+                    alt={s.name} 
+                    className="md:hidden w-full h-full object-cover" 
+                    src={s.image_url}
+                  />
+                  <button aria-label="Like" className="absolute top-4 right-4 w-8 h-8 rounded-full bg-surface-container-lowest/80 backdrop-blur flex items-center justify-center text-on-surface hover:text-error transition-colors" onClick={(e) => e.stopPropagation()}>
+                    <span className="material-symbols-outlined text-[20px] block">favorite</span>
+                  </button>
+                  {/* Mobile Rating badge overlay */}
+                  <div className="md:hidden absolute bottom-3 left-3 bg-surface-container-lowest/90 backdrop-blur-sm px-2 py-1 rounded text-xs font-medium text-on-surface flex items-center gap-1 shadow-sm">
+                    <span className="material-symbols-outlined text-[14px] text-primary-container block" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                    {s.rating} ({s.reviews})
+                  </div>
+                </div>
+                <div className="p-6 flex-1 flex flex-col justify-between cursor-pointer" onClick={() => handleSalonSelect(s.id)}>
+                  <div>
+                    <div className="flex justify-between items-start mb-1">
+                      {/* Salon Title (Desktop vs Mobile names) */}
+                      <h2 
+                        className="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors font-semibold"
+                      >
+                        <span>{s.name}</span>
+                      </h2>
+                      <div className="hidden md:flex items-center gap-1 bg-surface-container-low px-2 py-1 rounded-DEFAULT">
+                        <span className="material-symbols-outlined text-[16px] text-primary-container block" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                        <span className="font-label-md text-label-md text-on-surface font-semibold">{s.rating}</span>
+                      </div>
+                      {/* Mobile price tag */}
+                      <div className="md:hidden text-right">
+                        <span className="font-label-md text-[10px] text-on-surface-variant block font-medium">from</span>
+                        <p className="font-body-lg text-body-lg text-on-surface font-medium">
+                          {s.id === 'aura-studio' ? '$85' : '$65'}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant mb-4 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[16px] block">location_on</span> 
+                      <span>{s.location}</span>
+                    </p>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mb-4">
+                      <span>{s.about}</span>
+                    </p>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {s.tags && s.tags.slice(0, 3).map((tag, tIdx) => (
+                        <span key={tIdx} className="px-3 py-1 bg-secondary-container text-on-secondary-fixed-variant rounded-full font-label-md text-label-md">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t border-surface-variant gap-4 sm:gap-0" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex flex-col">
+                      <span className="font-label-md text-label-md text-on-surface-variant font-medium">Next available</span>
+                      <span className="font-body-sm text-body-sm text-on-surface font-semibold">
+                        <span>{s.id === 'aura-studio' ? 'Today, 3:30 PM' : 'Tomorrow, 10:00 AM'}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 w-full sm:w-auto">
+                      <span className="font-label-md text-label-md text-on-surface-variant hidden sm:block font-medium">
+                        {s.id === 'aura-studio' ? '$$$ • Haircuts from $130' : '$$$ • Haircuts from $140'}
+                      </span>
+                      <button 
+                        className="w-full sm:w-auto px-6 py-3 bg-primary-container text-on-primary-container font-label-lg text-label-lg rounded-DEFAULT hover:bg-inverse-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary-container font-semibold"
+                        onClick={() => handleSalonSelect(s.id)}
+                      >
+                        <span className="hidden md:inline">Book Now</span>
+                        <span className="md:hidden">View Details</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            ))}
+
+            {filteredSalons.length === 0 && (
+              <div className="bg-white rounded-xl border border-outline-variant/30 soft-glow p-8 text-center max-w-md mx-auto space-y-4 my-12 shadow-sm w-full flex flex-col items-center">
+                <span className="material-symbols-outlined text-outline text-5xl">search_off</span>
+                <h4 className="font-headline-md text-[20px] text-on-surface font-semibold">No salons found</h4>
+                <p className="text-body-sm text-on-surface-variant">No salons found — try a different search (e.g. "Haircut", "Balayage", "Atelier").</p>
+                <button 
+                  onClick={() => { setQueryInput(''); setLocationInput(''); setSearchParamsState({ query: '', location: '' }); }}
+                  className="bg-primary-container text-white px-6 py-2.5 rounded font-label-md text-label-md hover:bg-primary transition-colors cursor-pointer font-semibold uppercase tracking-wider"
+                >
+                  Clear Search
+                </button>
+              </div>
+            )}
+
+          </div>
+
+          {/* Load More Button */}
+          <div className="mt-8 flex justify-center">
+            <button className="px-8 py-3 border border-outline-variant text-on-surface font-label-lg text-label-lg rounded-DEFAULT hover:bg-surface-container-low transition-colors">
+              Load More Salons
+            </button>
+          </div>
+
+        </section>
+
+        {/* MOBILE MAP VIEW (Visible below 768px and when mode is Map) */}
+        <div className={`md:hidden flex-1 relative h-[calc(100vh-210px)] w-full bg-surface-container-highest ${viewMode === 'map' ? 'block' : 'hidden'}`}>
+          <img 
+            className="absolute inset-0 w-full h-full object-cover opacity-50 grayscale" 
+            src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMavBh6KOAcaQovMsOL0ktgdsgjzueNzloUbfZ_rrWOM2zFYiIrMFpnuBatOlSUeYjc8GTiy02DxY_bxUPDSWBRdbSqItw4EcIQTXK3a_KZZvSSJ_HLA7M25GC_QgMAcTiBwzv9Gimj2hn3wbckPQDNlgdi9R_iUcZTADP0dryy2vp6HRPuL0uKqYF736XkKxHh0sTI5ulgDTITFqZEFhvvvAaOmC4CSMkhpi720LCOIDfVeQEOfpsJR6o5XfP2xZjDGDd5fp3pW4"
+            alt="Simulated map background"
+          />
+          {/* Map Pin 1 */}
+          <div className="absolute top-[30%] left-[40%] cursor-pointer group" onClick={() => handleSalonSelect('aura-studio')}>
+            <div className="w-10 h-10 bg-primary-container text-on-primary rounded-full flex items-center justify-center shadow-lg relative z-10">
+              <span className="material-symbols-outlined">storefront</span>
+            </div>
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-surface-container-lowest p-2 rounded-lg shadow-lg w-40 z-20">
+              <p className="font-label-md text-label-md text-on-surface font-semibold">AURA Studio</p>
+              <p className="text-xs text-on-surface-variant">4.9 ★ • from $85</p>
+            </div>
+          </div>
+          {/* Map Pin 2 */}
+          <div className="absolute top-[55%] left-[60%] cursor-pointer group" onClick={() => handleSalonSelect('maison-de-beaute')}>
+            <div className="w-8 h-8 bg-surface-container-lowest text-on-surface rounded-full flex items-center justify-center shadow-md border border-outline-variant relative z-10">
+              <span className="material-symbols-outlined text-[16px]">storefront</span>
+            </div>
+          </div>
+          {/* Recenter Button */}
+          <button className="absolute bottom-6 right-6 w-12 h-12 bg-surface-container-lowest rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.1)] flex items-center justify-center text-on-surface hover:text-primary transition-colors">
+            <span className="material-symbols-outlined">my_location</span>
+          </button>
+        </div>
+
+      </main>
+
+      {/* MOBILE FILTER DRAWER & OVERLAY */}
+      <div 
+        className={`fixed inset-0 bg-on-background/40 z-50 backdrop-blur-[2px] transition-opacity duration-300 ${isFilterDrawerOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} 
+        onClick={() => setIsFilterDrawerOpen(false)}
+      ></div>
+      <div 
+        className={`fixed bottom-0 left-0 right-0 max-h-[751px] bg-surface-container-lowest rounded-t-3xl z-50 flex flex-col shadow-[0_-8px_30px_rgb(0,0,0,0.1)] md:max-w-[500px] md:mx-auto transition-transform duration-300 transform ${isFilterDrawerOpen ? 'translate-y-0' : 'translate-y-full'}`}
+      >
+        <div className="w-full flex justify-center pt-4 pb-2" onClick={() => setIsFilterDrawerOpen(false)}>
+          <div className="w-12 h-1.5 bg-surface-variant rounded-full cursor-pointer"></div>
+        </div>
+        <div className="px-margin-mobile pb-4 border-b border-outline-variant/30 flex justify-between items-center">
+          <h2 className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Filters</h2>
+          <button className="text-on-surface-variant hover:text-on-surface" onClick={() => setIsFilterDrawerOpen(false)}>
+            <span className="material-symbols-outlined block">close</span>
+          </button>
+        </div>
+        <div className="overflow-y-auto px-margin-mobile py-stack-md flex flex-col gap-stack-md flex-1">
+          <div>
+            <h3 className="font-label-lg text-label-lg text-on-surface mb-3 uppercase tracking-wider">Sort By</h3>
+            <div className="flex flex-col gap-3">
+              <label className="flex items-center gap-3">
+                <input defaultChecked className="text-primary-container focus:ring-primary-container" name="sort" type="radio" />
+                <span className="font-body-md text-body-md text-on-surface">Recommended</span>
+              </label>
+              <label className="flex items-center gap-3">
+                <input className="text-primary-container focus:ring-primary-container" name="sort" type="radio" />
+                <span className="font-body-md text-body-md text-on-surface">Distance (Nearest first)</span>
+              </label>
+              <label className="flex items-center gap-3">
+                <input className="text-primary-container focus:ring-primary-container" name="sort" type="radio" />
+                <span className="font-body-md text-body-md text-on-surface">Rating (Highest first)</span>
+              </label>
+            </div>
+          </div>
+          <hr className="border-outline-variant/30"/>
+          <div>
+            <h3 className="font-label-lg text-label-lg text-on-surface mb-3 uppercase tracking-wider">Price Range</h3>
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <label className="font-label-md text-label-md text-on-surface-variant block mb-1">Min</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
+                  <input className="w-full bg-surface-container border-none rounded-lg pl-8 pr-3 py-2 font-body-md text-body-md focus:ring-1 focus:ring-primary-container outline-none" placeholder="0" type="number" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <label className="font-label-md text-label-md text-on-surface-variant block mb-1">Max</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
+                  <input className="w-full bg-surface-container border-none rounded-lg pl-8 pr-3 py-2 font-body-md text-body-md focus:ring-1 focus:ring-primary-container outline-none" placeholder="200+" type="number" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <hr className="border-outline-variant/30"/>
+          <div>
+            <h3 className="font-label-lg text-label-lg text-on-surface mb-3 uppercase tracking-wider">Services</h3>
+            <div className="flex flex-wrap gap-2">
+              <button className="px-4 py-2 rounded-full border border-primary-container bg-secondary-container font-label-md text-label-md text-on-secondary-container">Haircut</button>
+              <button className="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest font-label-md text-label-md text-on-surface-variant">Color</button>
+              <button className="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest font-label-md text-label-md text-on-surface-variant">Highlights</button>
+              <button className="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest font-label-md text-label-md text-on-surface-variant">Extensions</button>
+              <button className="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest font-label-md text-label-md text-on-surface-variant">Styling</button>
+              <button className="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest font-label-md text-label-md text-on-surface-variant">Treatment</button>
+            </div>
+          </div>
+        </div>
+        <div className="p-margin-mobile border-t border-outline-variant/30 flex gap-4 bg-surface-container-lowest rounded-b-3xl">
+          <button className="flex-1 py-3 rounded-lg border border-outline text-on-surface font-label-lg text-label-lg hover:bg-surface-container transition-colors" onClick={() => setIsFilterDrawerOpen(false)}>
+            Clear All
+          </button>
+          <button className="flex-1 py-3 rounded-lg bg-primary-container text-on-primary font-label-lg text-label-lg hover:bg-primary transition-colors shadow-sm" onClick={() => setIsFilterDrawerOpen(false)}>
+            Apply Filters
+          </button>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="bg-secondary-container dark:bg-surface-container full-width border-t border-outline-variant/20 mt-auto">
+        <div className="max-w-[1200px] mx-auto px-margin-desktop py-stack-lg flex flex-col md:flex-row justify-between items-start gap-gutter">
+          <div className="flex flex-col gap-4 max-w-sm">
+            <span className="font-display-lg-mobile text-display-lg-mobile text-primary dark:text-primary-fixed-dim">AURA</span>
+            <p className="font-body-sm text-body-sm text-on-secondary-fixed-variant">
+              © 2024 AURA Wellness. Designed for modern elegance.
+            </p>
+          </div>
+          <nav className="flex flex-wrap md:flex-col gap-4 md:gap-2 mt-8 md:mt-0">
+            <a className="font-body-sm text-body-sm text-on-secondary-fixed-variant hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary-container" href="#">Contact Us</a>
+            <a className="font-body-sm text-body-sm text-on-secondary-fixed-variant hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary-container" href="#">Salon Partnerships</a>
+            <a className="font-body-sm text-body-sm text-on-secondary-fixed-variant hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary-container" href="#">Privacy Policy</a>
+            <a className="font-body-sm text-body-sm text-on-secondary-fixed-variant hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary-container" href="#">Terms of Service</a>
+            <a className="font-body-sm text-body-sm text-on-secondary-fixed-variant hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary-container" href="#">Newsletter</a>
+          </nav>
+        </div>
+      </footer>
+
+      {/* Mobile Bottom Navigation (Visible below 768px only) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 w-full bg-surface-container-lowest border-t border-outline-variant/20 z-50 px-6 py-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <ul className="flex justify-between items-center">
+          <li className="flex-1 flex flex-col items-center justify-center text-primary cursor-pointer">
+            <span className="material-symbols-outlined text-[24px] mb-1" style={{ fontVariationSettings: "'FILL' 1" }}>search</span>
+            <span className="font-label-md text-[10px] font-semibold">Explore</span>
+          </li>
+          <li className="flex-1 flex flex-col items-center justify-center text-secondary hover:text-primary-container transition-colors cursor-pointer">
+            <span className="material-symbols-outlined text-[24px] mb-1" style={{ fontVariationSettings: "'FILL' 0" }}>local_offer</span>
+            <span className="font-label-md text-[10px]">Specials</span>
+          </li>
+          <li className="flex-1 flex flex-col items-center justify-center text-secondary hover:text-primary-container transition-colors cursor-pointer" onClick={() => navigate('/search')}>
+            <span className="material-symbols-outlined text-[24px] mb-1" style={{ fontVariationSettings: "'FILL' 0" }}>calendar_today</span>
+            <span className="font-label-md text-[10px]">Bookings</span>
+          </li>
+          <li className="flex-1 flex flex-col items-center justify-center text-secondary hover:text-primary-container transition-colors cursor-pointer" onClick={() => navigate('/login')}>
+            <span className="material-symbols-outlined text-[24px] mb-1" style={{ fontVariationSettings: "'FILL' 0" }}>account_circle</span>
+            <span className="font-label-md text-[10px]">Profile</span>
+          </li>
+        </ul>
+      </nav>
+
+    </div>
+  );
+};
+
+export default SearchResultsPage;
