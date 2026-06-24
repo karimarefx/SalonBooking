@@ -1,257 +1,278 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useBooking } from '../context/BookingContext';
+import { supabase } from '../supabaseClient';
 
 const MyBookingsPage = () => {
   const navigate = useNavigate();
-  const { 
-    clientInfo,
-    fetchBookingsByEmail,
-    deleteBookingFromDb
-  } = useBooking();
 
-  const [dbBookings, setDbBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [cancellingId, setCancellingId] = useState(null);
 
-  const loadBookings = async () => {
-    if (!clientInfo.email) {
-      setLoading(false);
+  const handleLookup = async (e) => {
+    e.preventDefault();
+    if (!email.trim()) {
+      setErrorMsg('Please enter your email address.');
       return;
     }
+    setLoading(true);
+    setErrorMsg('');
     try {
-      setLoading(true);
-      const data = await fetchBookingsByEmail(clientInfo.email);
-      setDbBookings(data || []);
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('*, salons(name, location), specialists(name)')
+        .eq('client_email', email.trim().toLowerCase())
+        .order('booking_date', { ascending: false });
+
+      if (error) throw error;
+      setBookings(data || []);
+      setSubmitted(true);
     } catch (err) {
-      console.error('Failed to load bookings:', err);
+      console.error(err);
+      setErrorMsg('Failed to load bookings. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadBookings();
-  }, [clientInfo.email]);
-
-  const handleCancelBooking = async (id) => {
-    if (confirm('Are you sure you want to cancel this booking?')) {
-      try {
-        await deleteBookingFromDb(id);
-        alert('Your appointment has been successfully cancelled.');
-        loadBookings();
-      } catch (err) {
-        console.error(err);
-        alert('Failed to cancel booking.');
-      }
+  const handleCancel = async (id) => {
+    if (!confirm('Are you sure you want to cancel this appointment?')) return;
+    setCancellingId(id);
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: 'Cancelled' })
+        .eq('id', id);
+      if (error) throw error;
+      // Refresh list
+      setBookings(prev =>
+        prev.map(b => b.id === id ? { ...b, status: 'Cancelled' } : b)
+      );
+    } catch (err) {
+      console.error(err);
+      alert('Failed to cancel booking: ' + err.message);
+    } finally {
+      setCancellingId(null);
     }
   };
 
-  const handleBackToHome = () => {
-    navigate('/');
-  };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-  // Group bookings
-  const upcomingBookings = dbBookings.filter(b => {
+  const upcomingBookings = bookings.filter(b => {
     const bDate = new Date(b.booking_date);
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    return bDate >= today && b.status !== 'Cancelled';
+    return bDate >= today && b.status !== 'Cancelled' && b.status !== 'Completed';
   });
 
-  const pastBookings = dbBookings.filter(b => {
+  const pastBookings = bookings.filter(b => {
     const bDate = new Date(b.booking_date);
-    const today = new Date();
-    today.setHours(0,0,0,0);
     return bDate < today || b.status === 'Cancelled' || b.status === 'Completed';
   });
 
+  const statusColors = {
+    Confirmed: 'bg-primary-fixed text-on-primary-fixed',
+    Pending: 'bg-secondary-container text-on-secondary-container',
+    Completed: 'bg-surface-container text-secondary',
+    Cancelled: 'bg-error-container text-on-error-container',
+  };
 
-  return (
-    <div className="min-h-screen bg-background text-on-surface font-body-md antialiased flex flex-col justify-between">
-      
-      {/* DESKTOP HEADER */}
-      <header className="hidden md:block bg-surface w-full top-0 sticky z-50 border-b border-outline-variant/30">
-        <nav className="flex justify-between items-center px-margin-desktop w-full max-w-container-max mx-auto h-20">
-          <div className="flex items-center gap-12">
-            <span 
-              onClick={handleBackToHome} 
-              className="font-display-lg text-display-lg text-primary tracking-widest uppercase cursor-pointer"
-            >
-              AURA
-            </span>
-            <div className="flex items-center space-x-8 font-label-lg">
-              <span className="text-secondary pb-1 hover:text-primary transition-colors cursor-pointer" onClick={handleBackToHome}>Home</span>
-              <span className="text-secondary pb-1 hover:text-primary transition-colors cursor-pointer" onClick={() => navigate('/search')}>Salons</span>
-              <span className="text-primary border-b-2 border-primary pb-1 cursor-pointer">My Bookings</span>
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    try {
+      return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      });
+    } catch { return dateStr; }
+  };
+
+  const BookingCard = ({ booking }) => {
+    const isUpcoming = upcomingBookings.some(b => b.id === booking.id);
+    const services = Array.isArray(booking.selected_services) ? booking.selected_services : [];
+
+    return (
+      <div className={`bg-white rounded-xl border border-outline-variant/30 shadow-sm overflow-hidden transition-all duration-200 ${isUpcoming ? 'soft-glow' : 'opacity-80'}`}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/10">
+          <div>
+            <p className="font-semibold text-on-surface text-base">{booking.salons?.name || 'Salon'}</p>
+            <p className="text-xs text-on-surface-variant">{booking.salons?.location}</p>
+          </div>
+          <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${statusColors[booking.status] || 'bg-surface text-secondary'}`}>
+            {booking.status}
+          </span>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-0.5">
+            <p className="text-[10px] text-outline font-semibold uppercase tracking-wider">Date & Time</p>
+            <p className="font-medium text-on-surface">{formatDate(booking.booking_date)}</p>
+            <p className="text-sm text-on-surface-variant">{booking.booking_time}</p>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-[10px] text-outline font-semibold uppercase tracking-wider">Specialist</p>
+            <p className="font-medium text-on-surface">{booking.specialists?.name || 'Any Available'}</p>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-[10px] text-outline font-semibold uppercase tracking-wider">Total</p>
+            <p className="font-bold text-primary text-lg">${parseFloat(booking.total_price).toFixed(2)}</p>
+          </div>
+        </div>
+
+        {/* Services */}
+        {services.length > 0 && (
+          <div className="px-6 pb-4">
+            <p className="text-[10px] text-outline font-semibold uppercase tracking-wider mb-1.5">Services</p>
+            <div className="flex flex-wrap gap-2">
+              {services.map((svc, i) => (
+                <span key={i} className="bg-surface-container text-on-surface-variant text-xs px-2.5 py-1 rounded-full">
+                  {svc.name}
+                </span>
+              ))}
             </div>
           </div>
-          <div className="flex items-center space-x-4">
-            <button className="font-label-lg text-label-lg text-secondary px-4 py-2 hover:text-primary transition-colors">Login</button>
-            <button className="bg-primary text-on-primary font-label-lg text-label-lg px-6 py-3 rounded-lg hover:bg-primary-container transition-all active:opacity-80">Book Now</button>
-          </div>
-        </nav>
-      </header>
+        )}
 
-      {/* MOBILE HEADER */}
-      <header className="md:hidden sticky top-0 z-50 bg-surface h-16 flex items-center px-margin-mobile border-b border-outline-variant/10 shadow-sm">
-        <button onClick={handleBackToHome} className="p-2 -ml-2 text-secondary">
-          <span className="material-symbols-outlined font-light">arrow_back</span>
-        </button>
-        <div className="flex-grow text-center">
-          <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-primary tracking-tight">AURA</h1>
+        {/* Actions */}
+        {isUpcoming && (
+          <div className="px-6 pb-5">
+            <button
+              onClick={() => handleCancel(booking.id)}
+              disabled={cancellingId === booking.id}
+              className="text-sm font-semibold text-error border border-error/30 hover:bg-error-container transition-colors px-4 py-2 rounded-lg flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {cancellingId === booking.id ? (
+                <><span className="animate-spin material-symbols-outlined text-sm">sync</span>Cancelling...</>
+              ) : (
+                <><span className="material-symbols-outlined text-sm">cancel</span>Cancel Appointment</>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-background text-on-surface font-body-md antialiased">
+
+      {/* Header */}
+      <header className="bg-surface sticky top-0 z-50 border-b border-outline-variant/30 shadow-sm">
+        <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop h-20 flex items-center justify-between">
+          <span
+            onClick={() => navigate('/')}
+            className="font-display-lg text-display-lg text-primary tracking-widest uppercase cursor-pointer"
+          >
+            AURA
+          </span>
+          <nav className="flex items-center gap-6">
+            <button
+              onClick={() => navigate('/search')}
+              className="font-label-lg text-label-lg text-secondary hover:text-primary transition-colors"
+            >
+              Browse Salons
+            </button>
+          </nav>
         </div>
       </header>
 
-      {/* MAIN CONTAINER */}
-      <main className="flex-grow max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-8 md:py-12 w-full space-y-12">
-        
-        {/* PAGE HEADER */}
-        <div>
-          <h2 className="font-display-lg text-headline-lg md:text-[36px] text-on-surface font-semibold">My Bookings</h2>
-          <p className="font-body-md text-on-surface-variant">View and manage your upcoming or past appointments.</p>
+      <main className="max-w-3xl mx-auto px-margin-mobile md:px-margin-desktop py-12">
+
+        {/* Page Title */}
+        <div className="mb-10 text-center">
+          <span className="font-label-lg text-primary uppercase tracking-[0.2em] font-semibold text-xs">Appointments</span>
+          <h1 className="font-display-lg text-3xl md:text-4xl text-on-surface mt-2">My Bookings</h1>
+          <p className="text-on-surface-variant mt-2">Enter the email address you used when booking to view your appointments.</p>
         </div>
 
-        {/* SECTION: UPCOMING BOOKINGS */}
-        <section className="space-y-6">
-          <h3 className="font-headline-md text-headline-md border-b border-outline-variant/20 pb-2">Upcoming Visits</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-gutter">
-            
-            {/* Live bookings from database */}
-            {upcomingBookings.map(b => (
-              <div key={b.id} className="bg-white rounded-xl border border-outline-variant/30 soft-glow p-6 space-y-6 shadow-sm flex flex-col justify-between">
-                <div className="space-y-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <span className="bg-secondary-container text-on-secondary-container text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded">{b.status}</span>
-                      <h4 className="font-headline-md text-[20px] text-on-surface mt-3">{b.salons?.name || 'Aura Atelier'}</h4>
-                      <p className="text-body-sm text-on-surface-variant mt-1">{b.salons?.location || 'Tribeca, Manhattan'}</p>
-                    </div>
-                    <span className="font-headline-md text-[20px] text-primary font-bold">${parseFloat(b.total_price || 0).toFixed(2)}</span>
-                  </div>
+        {/* Email Lookup Form */}
+        <div className="bg-white rounded-2xl border border-outline-variant/30 shadow-sm p-6 md:p-8 mb-10">
+          <form onSubmit={handleLookup} className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline font-light">mail</span>
+              <input
+                id="lookup-email"
+                type="email"
+                required
+                placeholder="your@email.com"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setSubmitted(false); }}
+                className="w-full pl-10 pr-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl font-body-md text-on-surface outline-none focus:border-primary transition-colors"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="bg-primary text-on-primary px-8 py-3 rounded-xl font-label-lg uppercase tracking-wider font-semibold hover:opacity-90 transition-opacity active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap"
+            >
+              {loading ? (
+                <><span className="animate-spin material-symbols-outlined text-sm">sync</span>Looking up...</>
+              ) : (
+                <><span className="material-symbols-outlined text-sm">search</span>Find Bookings</>
+              )}
+            </button>
+          </form>
+          {errorMsg && (
+            <p className="mt-3 text-red-600 text-sm">{errorMsg}</p>
+          )}
+        </div>
 
-                  <div className="space-y-2 text-body-sm text-on-surface-variant">
-                    <div>
-                      <p className="text-outline uppercase font-semibold text-[10px] tracking-wider">Services</p>
-                      <p className="font-semibold text-on-surface">
-                        {Array.isArray(b.selected_services) ? b.selected_services.map(s => s.name).join(', ') : 'Custom Treatment'}
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 pt-2">
-                      <div>
-                        <p className="text-outline uppercase font-semibold text-[10px] tracking-wider">Specialist</p>
-                        <p className="font-semibold text-on-surface">{b.specialists?.name || 'Any Specialist'}</p>
-                      </div>
-                      <div>
-                        <p className="text-outline uppercase font-semibold text-[10px] tracking-wider">Date & Time</p>
-                        <p className="font-semibold text-on-surface">
-                          {new Date(b.booking_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} • {b.booking_time}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-outline-variant/20 flex gap-4 mt-auto">
-                  <button 
-                    onClick={() => handleCancelBooking(b.id)} 
-                    className="px-5 py-2.5 border border-error text-error rounded hover:bg-error-container/10 font-label-md text-label-md transition-colors cursor-pointer font-semibold uppercase tracking-wider"
-                  >
-                    Cancel Booking
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            {/* Empty State for Upcoming Visits */}
-            {!loading && clientInfo.email && upcomingBookings.length === 0 && (
-              <div className="col-span-2 bg-white rounded-xl border border-outline-variant/30 soft-glow p-8 text-center max-w-md mx-auto space-y-4 w-full shadow-sm">
-                <span className="material-symbols-outlined text-outline text-5xl">event_busy</span>
-                <h4 className="font-headline-md text-[20px] text-on-surface font-semibold">No Upcoming Visits</h4>
-                <p className="text-body-sm text-on-surface-variant">You don't have any appointments scheduled. Discover premium treatments to book your next visit.</p>
-                <button onClick={handleBackToHome} className="bg-primary-container text-white px-6 py-2.5 rounded font-label-md text-label-md hover:bg-primary transition-colors cursor-pointer">
-                  Book Now
+        {/* Results */}
+        {submitted && (
+          <>
+            {bookings.length === 0 ? (
+              <div className="text-center py-16 space-y-4">
+                <span className="material-symbols-outlined text-6xl text-outline font-light">calendar_month</span>
+                <h3 className="font-headline-md text-xl text-on-surface">No bookings found</h3>
+                <p className="text-on-surface-variant">No appointments are linked to <strong>{email}</strong>.</p>
+                <button
+                  onClick={() => navigate('/search')}
+                  className="mt-4 bg-primary text-on-primary px-8 py-3 rounded-xl font-label-lg uppercase tracking-wider hover:opacity-90 transition-opacity"
+                >
+                  Book a Visit
                 </button>
               </div>
-            )}
-
-            {/* Unauthenticated State */}
-            {!clientInfo.email && (
-              <div className="col-span-2 bg-white rounded-xl border border-outline-variant/30 soft-glow p-8 text-center max-w-md mx-auto space-y-4 w-full shadow-sm flex flex-col items-center">
-                <span className="material-symbols-outlined text-outline text-5xl">lock</span>
-                <h4 className="font-headline-md text-[20px] text-on-surface font-semibold">Please Sign In</h4>
-                <p className="text-body-sm text-on-surface-variant">You must be signed in to view your appointments and schedule premium self-care.</p>
-                <button onClick={() => navigate('/login', { state: { from: { pathname: '/account/bookings' } } })} className="bg-primary-container text-white px-8 py-3 rounded-lg font-label-lg hover:bg-primary transition-colors cursor-pointer uppercase font-semibold tracking-wider">
-                  Sign In
-                </button>
-              </div>
-            )}
-
-            {loading && (
-              <div className="col-span-2 text-center py-12 flex flex-col items-center gap-2">
-                <span className="animate-spin material-symbols-outlined text-3xl text-primary">sync</span>
-                <p className="text-body-sm text-on-surface-variant">Loading your appointments...</p>
-              </div>
-            )}
-
-          </div>
-        </section>
-
-        {/* SECTION: PAST BOOKINGS */}
-        <section className="space-y-6">
-          <h3 className="font-headline-md text-headline-md border-b border-outline-variant/20 pb-2">Past Bookings</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-gutter">
-            {pastBookings.map(b => (
-              <div key={b.id} className="bg-white rounded-xl border border-outline-variant/30 opacity-80 p-6 space-y-6 shadow-sm">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="bg-surface-container text-on-surface-variant text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded">{b.status}</span>
-                    <h4 className="font-headline-md text-[18px] text-on-surface mt-3">{b.salons?.name || 'Maison de Beauté'}</h4>
-                    <p className="text-body-sm text-on-surface-variant mt-1">{b.salons?.location || 'Soho, Manhattan'}</p>
-                  </div>
-                  <span className="font-headline-md text-[18px] text-primary font-bold">${parseFloat(b.total_price || 0).toFixed(2)}</span>
-                </div>
-
-                <div className="space-y-2 text-body-sm text-on-surface-variant border-t border-outline-variant/10 pt-4">
-                  <div>
-                    <p className="text-outline uppercase font-semibold text-[10px] tracking-wider">Services</p>
-                    <p className="font-semibold text-on-surface">
-                      {Array.isArray(b.selected_services) ? b.selected_services.map(s => s.name).join(', ') : 'Custom Treatment'}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 pt-2">
-                    <div>
-                      <p className="text-outline uppercase font-semibold text-[10px] tracking-wider">Specialist</p>
-                      <p className="font-semibold text-on-surface">{b.specialists?.name || 'Any Specialist'}</p>
+            ) : (
+              <div className="space-y-10">
+                {/* Upcoming */}
+                {upcomingBookings.length > 0 && (
+                  <section className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <span className="material-symbols-outlined text-primary">upcoming</span>
+                      <h2 className="font-headline-md text-xl text-on-surface font-semibold">Upcoming</h2>
+                      <span className="bg-primary text-on-primary text-xs px-2.5 py-0.5 rounded-full font-semibold">{upcomingBookings.length}</span>
                     </div>
-                    <div>
-                      <p className="text-outline uppercase font-semibold text-[10px] tracking-wider">Date & Time</p>
-                      <p className="font-semibold text-on-surface">
-                        {new Date(b.booking_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} • {b.booking_time}
-                      </p>
+                    <div className="space-y-4">
+                      {upcomingBookings.map(b => <BookingCard key={b.id} booking={b} />)}
                     </div>
-                  </div>
-                </div>
+                  </section>
+                )}
+
+                {/* Past */}
+                {pastBookings.length > 0 && (
+                  <section className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <span className="material-symbols-outlined text-secondary">history</span>
+                      <h2 className="font-headline-md text-xl text-on-surface font-semibold">Past & Cancelled</h2>
+                    </div>
+                    <div className="space-y-4">
+                      {pastBookings.map(b => <BookingCard key={b.id} booking={b} />)}
+                    </div>
+                  </section>
+                )}
               </div>
-            ))}
-
-            {clientInfo.email && pastBookings.length === 0 && !loading && (
-              <p className="col-span-2 text-center text-body-sm text-on-surface-variant py-8">No past appointments found.</p>
             )}
-          </div>
-        </section>
-
+          </>
+        )}
       </main>
 
-      {/* FOOTER */}
-      <footer className="bg-surface-container-low dark:bg-inverse-surface border-t border-outline-variant/10 py-6">
-        <div className="max-w-container-max mx-auto px-margin-desktop flex justify-between items-center text-body-sm text-secondary">
-          <span className="font-display-lg text-[20px] text-primary tracking-widest uppercase">AURA</span>
-          <p>© 2024 AURA Wellness & Beauty. All rights reserved.</p>
-        </div>
+      {/* Footer */}
+      <footer className="border-t border-outline-variant/20 py-8 text-center text-body-sm text-secondary mt-auto">
+        <p>© 2025 AURA Wellness & Beauty. All rights reserved.</p>
       </footer>
-      
     </div>
   );
 };

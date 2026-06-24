@@ -78,6 +78,12 @@ const ConfirmBookingPage = () => {
         console.error('Failed to parse date:', err);
       }
 
+      // Compute total service duration in minutes for slot blocking
+      const totalDurationMins = selectedServices.reduce((sum, svc) => {
+        const match = typeof svc.duration === 'string' ? svc.duration.match(/\d+/) : null;
+        return sum + (match ? parseInt(match[0]) : 60);
+      }, 0) || 60;
+
       const bookingData = {
         salon_id: id,
         specialist_id: (selectedSpecialist && selectedSpecialist.id && selectedSpecialist.name !== 'Any Specialist') ? selectedSpecialist.id : null,
@@ -89,6 +95,7 @@ const ConfirmBookingPage = () => {
         client_phone: clientInfo.phone,
         notes: clientInfo.notes || '',
         total_price: totalAmount,
+        slot_duration_minutes: totalDurationMins,
         status: 'Confirmed'
       };
 

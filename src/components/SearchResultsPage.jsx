@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useBooking } from '../context/BookingContext';
+import { useAuth } from '../context/AuthContext';
 
 const salonsData = [
   {
@@ -44,13 +45,16 @@ const salonsData = [
 const SearchResultsPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParamsState] = useSearchParams();
-  const { searchQuery, setSearchQuery, searchLocation, setSearchLocation, fetchSalons, clientInfo } = useBooking();
+  const { searchQuery, setSearchQuery, searchLocation, setSearchLocation, fetchSalons } = useBooking();
+  const { isAuthenticated } = useAuth();
   
   // Local state for filters and UI toggle
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'map'
   const [salons, setSalons] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState('rating'); // 'rating', 'name', 'reviews'
+  const [activeTag, setActiveTag] = useState(''); // filter by tag
 
   // Sync parameters from context or URL search params
   const [queryInput, setQueryInput] = useState(searchParams.get('query') || searchQuery || 'Hair Salon');
@@ -96,16 +100,38 @@ const SearchResultsPage = () => {
   };
 
   const currentQuery = searchParams.get('query') || searchQuery || '';
+  const currentLocation = searchParams.get('location') || searchLocation || '';
 
-  const filteredSalons = salons.filter(s => {
-    if (!currentQuery) return true;
-    const q = currentQuery.toLowerCase();
-    return (
-      (s.name && s.name.toLowerCase().includes(q)) ||
-      (s.about && s.about.toLowerCase().includes(q)) ||
-      (s.tags && s.tags.some(tag => tag.toLowerCase().includes(q)))
-    );
-  });
+  // Collect all unique tags from loaded salons for filter pills
+  const allTags = [...new Set(salons.flatMap(s => s.tags || []))].sort();
+
+  const filteredSalons = salons
+    .filter(s => {
+      // Text search
+      if (currentQuery) {
+        const q = currentQuery.toLowerCase();
+        const nameMatch = s.name && s.name.toLowerCase().includes(q);
+        const aboutMatch = s.about && s.about.toLowerCase().includes(q);
+        const tagMatch = s.tags && s.tags.some(tag => tag.toLowerCase().includes(q));
+        if (!nameMatch && !aboutMatch && !tagMatch) return false;
+      }
+      // Location filter
+      if (currentLocation) {
+        const loc = currentLocation.toLowerCase();
+        if (s.location && !s.location.toLowerCase().includes(loc)) return false;
+      }
+      // Tag filter
+      if (activeTag) {
+        if (!s.tags || !s.tags.includes(activeTag)) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'rating') return parseFloat(b.rating || 0) - parseFloat(a.rating || 0);
+      if (sortBy === 'reviews') return (b.reviews || 0) - (a.reviews || 0);
+      if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '');
+      return 0;
+    });
 
   return (
     <div className="min-h-screen bg-surface text-on-surface font-body-md text-body-md antialiased flex flex-col pb-[80px] md:pb-0">
@@ -133,7 +159,7 @@ const SearchResultsPage = () => {
                 onChange={(e) => setQueryInput(e.target.value)}
               />
               <div className="h-4 w-px bg-outline-variant mx-3"></div>
-              <span class="material-symbols-outlined text-secondary mr-2">location_on</span>
+              <span className="material-symbols-outlined text-secondary mr-2">location_on</span>
               <input 
                 className="bg-transparent border-none focus:ring-0 p-0 font-body-md text-body-md text-on-surface flex-1 outline-none" 
                 placeholder="Location" 
@@ -150,19 +176,15 @@ const SearchResultsPage = () => {
             <button className="text-secondary font-medium hover:text-primary-container transition-colors duration-300" onClick={() => navigate('/about')}>About</button>
           </nav>
           <div className="flex items-center gap-6">
-            {clientInfo?.email ? (
+            {isAuthenticated ? (
               <button className="font-label-lg text-label-lg text-primary hover:text-primary-container transition-colors" onClick={() => navigate('/owner/dashboard')}>Owner Dashboard</button>
             ) : (
               <button className="font-label-lg text-label-lg text-primary hover:text-primary-container transition-colors" onClick={() => navigate('/owner/portal')}>List Your Salon</button>
             )}
-            {clientInfo?.email ? (
-              <button className="font-label-lg text-label-lg text-primary hover:text-primary-container transition-colors" onClick={() => navigate('/account/bookings')}>{clientInfo.name || 'Account'}</button>
-            ) : (
-              <button className="font-label-lg text-label-lg text-primary hover:text-primary-container transition-colors" onClick={() => navigate('/login')}>Sign In</button>
-            )}
+            <button className="font-label-lg text-label-lg text-primary hover:text-primary-container transition-colors" onClick={() => navigate('/account/bookings')}>My Bookings</button>
             <div className="flex items-center gap-4">
-              <button aria-label="calendar_today" onClick={() => navigate(clientInfo?.email ? '/account/bookings' : '/login')} className="material-symbols-outlined text-primary hover:text-primary-container transition-colors duration-300 active:scale-95">calendar_today</button>
-              <button aria-label="account_circle" onClick={() => navigate(clientInfo?.email ? '/account/bookings' : '/login')} className="material-symbols-outlined text-primary hover:text-primary-container transition-colors duration-300 active:scale-95">account_circle</button>
+              <button aria-label="calendar_today" onClick={() => navigate('/account/bookings')} className="material-symbols-outlined text-primary hover:text-primary-container transition-colors duration-300 active:scale-95">calendar_today</button>
+              <button aria-label="account_circle" onClick={() => navigate(isAuthenticated ? '/owner/dashboard' : '/login')} className="material-symbols-outlined text-primary hover:text-primary-container transition-colors duration-300 active:scale-95">account_circle</button>
             </div>
           </div>
         </div>
@@ -215,12 +237,34 @@ const SearchResultsPage = () => {
               </button>
             </div>
           </div>
-          {/* Quick Filters Chips */}
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-margin-mobile px-margin-mobile">
-            <button className="shrink-0 px-4 py-1.5 rounded-full border border-primary-container bg-secondary-container font-label-md text-label-md text-on-secondary-container">Open Now</button>
-            <button className="shrink-0 px-4 py-1.5 rounded-full border border-outline-variant bg-surface-container-lowest font-label-md text-label-md text-on-surface-variant">Top Rated</button>
-            <button className="shrink-0 px-4 py-1.5 rounded-full border border-outline-variant bg-surface-container-lowest font-label-md text-label-md text-on-surface-variant">Coloring</button>
-            <button className="shrink-0 px-4 py-1.5 rounded-full border border-outline-variant bg-surface-container-lowest font-label-md text-label-md text-on-surface-variant">Extensions</button>
+          {/* Sort & Filter Controls */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide flex-1">
+              <button
+                onClick={() => setActiveTag('')}
+                className={`shrink-0 px-4 py-1.5 rounded-full border font-label-md text-label-md transition-colors ${!activeTag ? 'border-primary-container bg-secondary-container text-on-secondary-container' : 'border-outline-variant bg-surface-container-lowest text-on-surface-variant'}`}
+              >
+                All
+              </button>
+              {allTags.slice(0, 8).map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => setActiveTag(activeTag === tag ? '' : tag)}
+                  className={`shrink-0 px-4 py-1.5 rounded-full border font-label-md text-label-md transition-colors ${activeTag === tag ? 'border-primary-container bg-secondary-container text-on-secondary-container' : 'border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-primary'}`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="shrink-0 bg-surface border border-outline-variant rounded-lg py-1.5 px-3 font-body-sm text-sm outline-none focus:border-primary"
+            >
+              <option value="rating">Top Rated</option>
+              <option value="reviews">Most Reviewed</option>
+              <option value="name">Name A-Z</option>
+            </select>
           </div>
         </div>
 

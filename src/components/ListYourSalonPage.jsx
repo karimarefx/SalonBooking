@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { useBooking } from '../context/BookingContext';
 
 const ListYourSalonPage = () => {
   const navigate = useNavigate();
-  const { setClientInfo } = useBooking();
 
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,14 +91,8 @@ const ListYourSalonPage = () => {
         return;
       }
 
-      // Sync ClientInfo context (sign owner in)
-      setClientInfo(prev => ({
-        ...prev,
-        email: email,
-        name: ownerName
-      }));
-
-      alert('Congratulations! Your salon has been registered successfully.');
+      // The Supabase auth session is set, AuthContext will pick it up automatically
+      // No need to manually sync clientInfo — just navigate to dashboard
       navigate('/owner/dashboard');
 
     } catch (err) {

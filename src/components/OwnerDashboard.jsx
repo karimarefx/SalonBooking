@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useBooking } from '../context/BookingContext';
+import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
 
 const OwnerDashboard = () => {
   const navigate = useNavigate();
-  const { clientInfo } = useBooking();
+  const { user, signOut } = useAuth();
 
   const [activeTab, setActiveTab] = useState('overview'); // overview, bookings, services, specialists, settings
   const [loading, setLoading] = useState(true);
@@ -25,6 +25,17 @@ const OwnerDashboard = () => {
   const [editingSpecialist, setEditingSpecialist] = useState(null);
   const [specialistForm, setSpecialistForm] = useState({ name: '', title: '', rating: '5.0', image: '' });
 
+  // Reschedule modal state
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [rescheduleBooking, setRescheduleBooking] = useState(null);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('');
+
+  // Specialist schedule modal state
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleSpecialist, setScheduleSpecialist] = useState(null);
+  const [scheduleForm, setScheduleForm] = useState(null);
+
   // Settings form state
   const [salonForm, setSalonForm] = useState({ name: '', location: '', description: '', about: '', tagsString: '', image_url: '' });
 
@@ -36,17 +47,16 @@ const OwnerDashboard = () => {
 
   // Load all dashboard data
   const loadDashboardData = async () => {
-    if (!clientInfo.email) {
+    if (!user?.email) {
       setLoading(false);
       return;
     }
     try {
       setLoading(true);
-      // 1. Fetch salon owned by current email
       const { data: salonData, error: salonError } = await supabase
         .from('salons')
         .select('*')
-        .eq('owner_email', clientInfo.email)
+        .eq('owner_email', user.email)
         .maybeSingle();
 
       if (salonError) throw salonError;
@@ -100,10 +110,10 @@ const OwnerDashboard = () => {
 
   useEffect(() => {
     loadDashboardData();
-  }, [clientInfo.email]);
+  }, [user?.email]);
 
-  // Auth Guard
-  if (!clientInfo.email) {
+  // Auth Guard — handled by OwnerRoute, this is a fallback
+  if (!user) {
     return (
       <div className="min-h-screen bg-background text-on-surface flex flex-col items-center justify-center gap-6 p-margin-mobile">
         <span className="material-symbols-outlined text-6xl text-primary font-light">lock</span>
@@ -111,14 +121,9 @@ const OwnerDashboard = () => {
           <h2 className="font-headline-lg text-2xl font-semibold">Dashboard Access Protected</h2>
           <p className="text-body-sm text-on-surface-variant">Please log in to your Salon Owner account to manage your business.</p>
         </div>
-        <div className="flex gap-4">
-          <button onClick={() => navigate('/login')} className="bg-primary text-on-primary px-8 py-3 rounded-lg font-label-lg uppercase tracking-wider hover:opacity-90">
-            Sign In
-          </button>
-          <button onClick={() => navigate('/')} className="border border-outline text-on-surface px-8 py-3 rounded-lg font-label-lg uppercase tracking-wider hover:bg-surface-container">
-            Back to Home
-          </button>
-        </div>
+        <button onClick={() => navigate('/login')} className="bg-primary text-on-primary px-8 py-3 rounded-lg font-label-lg uppercase tracking-wider hover:opacity-90">
+          Sign In
+        </button>
       </div>
     );
   }
@@ -162,7 +167,7 @@ const OwnerDashboard = () => {
 
   // Action: Update Booking Status
   const handleUpdateBookingStatus = async (bookingId, newStatus) => {
-    if (!confirm(`Are you sure you want to mark this booking as ${newStatus}?`)) return;
+    if (!confirm(`Mark this booking as ${newStatus}?`)) return;
     try {
       setActionLoading(true);
       const { error } = await supabase
@@ -170,7 +175,6 @@ const OwnerDashboard = () => {
         .update({ status: newStatus })
         .eq('id', bookingId);
       if (error) throw error;
-      alert(`Booking has been marked as ${newStatus}.`);
       loadDashboardData();
     } catch (err) {
       console.error(err);
@@ -180,7 +184,86 @@ const OwnerDashboard = () => {
     }
   };
 
-  // Action: Add / Edit Service Submit
+  // Action: Open Reschedule Modal
+  const handleOpenReschedule = (booking) => {
+    setRescheduleBooking(booking);
+    setRescheduleDate(booking.booking_date);
+    setRescheduleTime(booking.booking_time);
+    setShowRescheduleModal(true);
+  };
+
+  // Action: Confirm Reschedule
+  const handleRescheduleSubmit = async (e) => {
+    e.preventDefault();
+    if (!rescheduleDate || !rescheduleTime) {
+      alert('Please select a new date and time.');
+      return;
+    }
+    try {
+      setActionLoading(true);
+      const { error } = await supabase
+        .from('bookings')
+        .update({ booking_date: rescheduleDate, booking_time: rescheduleTime, status: 'Confirmed' })
+        .eq('id', rescheduleBooking.id);
+      if (error) throw error;
+      setShowRescheduleModal(false);
+      setRescheduleBooking(null);
+      loadDashboardData();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to reschedule booking: ' + err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Action: Open Specialist Schedule Modal
+  const handleOpenSchedule = (specialist) => {
+    const defaultSchedule = {
+      monday:    { enabled: true,  start: '09:00', end: '18:00' },
+      tuesday:   { enabled: true,  start: '09:00', end: '18:00' },
+      wednesday: { enabled: true,  start: '09:00', end: '18:00' },
+      thursday:  { enabled: true,  start: '09:00', end: '18:00' },
+      friday:    { enabled: true,  start: '09:00', end: '18:00' },
+      saturday:  { enabled: true,  start: '10:00', end: '16:00' },
+      sunday:    { enabled: false, start: '09:00', end: '18:00' },
+    };
+    setScheduleSpecialist(specialist);
+    setScheduleForm(specialist.schedule || defaultSchedule);
+    setShowScheduleModal(true);
+  };
+
+  // Action: Save Specialist Schedule
+  const handleScheduleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setActionLoading(true);
+      const { error } = await supabase
+        .from('specialists')
+        .update({ schedule: scheduleForm })
+        .eq('id', scheduleSpecialist.id);
+      if (error) throw error;
+      setShowScheduleModal(false);
+      setScheduleSpecialist(null);
+      loadDashboardData();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save schedule: ' + err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const DAY_LABELS = [
+    { key: 'monday', label: 'Mon' },
+    { key: 'tuesday', label: 'Tue' },
+    { key: 'wednesday', label: 'Wed' },
+    { key: 'thursday', label: 'Thu' },
+    { key: 'friday', label: 'Fri' },
+    { key: 'saturday', label: 'Sat' },
+    { key: 'sunday', label: 'Sun' },
+  ];
+
   const handleServiceSubmit = async (e) => {
     e.preventDefault();
     if (!serviceForm.name || !serviceForm.price || !serviceForm.duration) {
@@ -362,10 +445,10 @@ const OwnerDashboard = () => {
           </div>
           <div className="flex items-center gap-4">
             <span className="hidden md:inline font-label-lg text-sm font-semibold text-secondary">
-              Logged in as: {clientInfo.name}
+              {user?.email}
             </span>
-            <button 
-              onClick={() => navigate('/login')} 
+            <button
+              onClick={async () => { await signOut(); navigate('/login'); }}
               className="border border-outline hover:bg-surface-container text-on-surface-variant text-xs font-label-lg px-4 py-2 rounded-lg"
             >
               Sign Out
@@ -582,13 +665,19 @@ const OwnerDashboard = () => {
                         <td className="px-6 py-4 space-y-1.5">
                           {booking.status === 'Confirmed' && (
                             <>
-                              <button 
+                              <button
                                 onClick={() => handleUpdateBookingStatus(booking.id, 'Completed')}
                                 className="block w-full text-center bg-secondary-container hover:bg-secondary text-on-secondary-container hover:text-white text-[10px] font-semibold py-1 rounded uppercase tracking-wider"
                               >
                                 Complete
                               </button>
-                              <button 
+                              <button
+                                onClick={() => handleOpenReschedule(booking)}
+                                className="block w-full text-center bg-surface-container hover:bg-primary/10 text-on-surface-variant text-[10px] font-semibold py-1 rounded uppercase tracking-wider"
+                              >
+                                Reschedule
+                              </button>
+                              <button
                                 onClick={() => handleUpdateBookingStatus(booking.id, 'Cancelled')}
                                 className="block w-full text-center border border-error hover:bg-error text-error hover:text-white text-[10px] font-semibold py-1 rounded uppercase tracking-wider"
                               >
@@ -735,6 +824,13 @@ const OwnerDashboard = () => {
                       <p className="text-xs text-on-surface-variant">{sp.title}</p>
                     </div>
                     <div className="p-4 border-t border-outline-variant/15 flex gap-2">
+                      <button
+                        onClick={() => handleOpenSchedule(sp)}
+                        className="flex items-center justify-center gap-1 border border-primary/30 hover:bg-primary/10 text-primary font-label-lg text-xs px-2.5 rounded-lg"
+                        title="Set weekly schedule"
+                      >
+                        <span className="material-symbols-outlined text-sm">schedule</span>
+                      </button>
                       <button 
                         onClick={() => {
                           setEditingSpecialist(sp);
@@ -1050,6 +1146,123 @@ const OwnerDashboard = () => {
                   </>
                 ) : (
                   <span>Save Specialist</span>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* RESCHEDULE MODAL */}
+      {showRescheduleModal && rescheduleBooking && (
+        <div className="fixed inset-0 z-50 bg-on-surface/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full border border-outline-variant/30 shadow-2xl p-6 md:p-8 space-y-6">
+            <div className="flex justify-between items-center border-b border-outline-variant/20 pb-4">
+              <div>
+                <h3 className="font-headline-md text-xl text-on-surface font-semibold">Reschedule Booking</h3>
+                <p className="text-xs text-on-surface-variant mt-0.5">{rescheduleBooking.client_name}</p>
+              </div>
+              <button onClick={() => setShowRescheduleModal(false)} className="text-on-surface-variant hover:text-primary transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <form onSubmit={handleRescheduleSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <label className="block font-label-lg text-xs text-on-surface-variant">New Date</label>
+                <input
+                  type="date"
+                  required
+                  className="w-full bg-surface-container-low border border-outline-variant/50 rounded-lg py-2.5 px-3 font-body-sm outline-none focus:border-primary transition-colors"
+                  value={rescheduleDate}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="block font-label-lg text-xs text-on-surface-variant">New Time</label>
+                <input
+                  type="time"
+                  required
+                  className="w-full bg-surface-container-low border border-outline-variant/50 rounded-lg py-2.5 px-3 font-body-sm outline-none focus:border-primary transition-colors"
+                  value={rescheduleTime}
+                  onChange={(e) => setRescheduleTime(e.target.value)}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={actionLoading}
+                className="w-full bg-primary text-on-primary py-3.5 rounded-lg font-label-lg uppercase tracking-wider font-semibold hover:opacity-90 transition-opacity active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                {actionLoading ? (
+                  <><span className="animate-spin material-symbols-outlined text-white text-xs">sync</span><span>Saving...</span></>
+                ) : (
+                  <span>Confirm Reschedule</span>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* SPECIALIST SCHEDULE MODAL */}
+      {showScheduleModal && scheduleSpecialist && scheduleForm && (
+        <div className="fixed inset-0 z-50 bg-on-surface/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full border border-outline-variant/30 shadow-2xl p-6 md:p-8 space-y-6 overflow-y-auto max-h-[90vh]">
+            <div className="flex justify-between items-center border-b border-outline-variant/20 pb-4">
+              <div>
+                <h3 className="font-headline-md text-xl text-on-surface font-semibold">Weekly Schedule</h3>
+                <p className="text-xs text-on-surface-variant mt-0.5">{scheduleSpecialist.name}</p>
+              </div>
+              <button onClick={() => setShowScheduleModal(false)} className="text-on-surface-variant hover:text-primary transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <form onSubmit={handleScheduleSubmit} className="space-y-3">
+              {DAY_LABELS.map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-4 py-2 border-b border-outline-variant/10 last:border-0">
+                  <div className="w-10">
+                    <span className="text-xs font-bold text-on-surface-variant uppercase">{label}</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={scheduleForm[key]?.enabled ?? false}
+                      onChange={(e) => setScheduleForm(prev => ({ ...prev, [key]: { ...prev[key], enabled: e.target.checked } }))}
+                    />
+                    <div className="w-10 h-5 bg-outline-variant peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
+                  </label>
+                  {scheduleForm[key]?.enabled && (
+                    <div className="flex items-center gap-2 flex-1">
+                      <input
+                        type="time"
+                        className="flex-1 bg-surface-container-low border border-outline-variant/50 rounded-lg py-1.5 px-2 font-body-sm outline-none focus:border-primary text-xs"
+                        value={scheduleForm[key]?.start || '09:00'}
+                        onChange={(e) => setScheduleForm(prev => ({ ...prev, [key]: { ...prev[key], start: e.target.value } }))}
+                      />
+                      <span className="text-xs text-on-surface-variant">to</span>
+                      <input
+                        type="time"
+                        className="flex-1 bg-surface-container-low border border-outline-variant/50 rounded-lg py-1.5 px-2 font-body-sm outline-none focus:border-primary text-xs"
+                        value={scheduleForm[key]?.end || '18:00'}
+                        onChange={(e) => setScheduleForm(prev => ({ ...prev, [key]: { ...prev[key], end: e.target.value } }))}
+                      />
+                    </div>
+                  )}
+                  {!scheduleForm[key]?.enabled && (
+                    <span className="text-xs text-outline italic flex-1">Day off</span>
+                  )}
+                </div>
+              ))}
+              <button
+                type="submit"
+                disabled={actionLoading}
+                className="w-full bg-primary text-on-primary py-3.5 rounded-lg font-label-lg uppercase tracking-wider font-semibold hover:opacity-90 transition-opacity active:scale-95 flex items-center justify-center gap-1.5 mt-4"
+              >
+                {actionLoading ? (
+                  <><span className="animate-spin material-symbols-outlined text-white text-xs">sync</span><span>Saving...</span></>
+                ) : (
+                  <span>Save Schedule</span>
                 )}
               </button>
             </form>
