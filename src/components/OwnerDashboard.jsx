@@ -848,7 +848,7 @@ const OwnerDashboard = () => {
             <div className="bg-white p-6 md:p-8 rounded-xl border border-outline-variant/30 shadow-sm space-y-6">
               <div>
                 <h3 className="font-headline-md text-xl text-on-surface font-semibold">Salon Profile Settings</h3>
-                <p className="text-xs text-on-surface-variant">Update the public brand details displayed to Aura clients.</p>
+                <p className="text-xs text-on-surface-variant">Update the public brand details displayed to Miraia clients.</p>
               </div>
 
               <form onSubmit={handleUpdateSalonSettings} className="space-y-6">

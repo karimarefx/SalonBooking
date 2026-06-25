@@ -11,15 +11,15 @@ const AboutPage = () => {
 
   const faqs = [
     {
-      q: 'How does booking through AURA work?',
-      a: 'AURA is a curated network connecting you with premier beauty and wellness sanctuaries. You can explore verified salons, choose specialized treatments, pick your preferred specialist, and book instantly. Payments are handled securely, and confirmation is sent directly via email.'
+      q: 'How does booking through Miraia work?',
+      a: 'Miraia is a curated network connecting you with premier beauty and wellness sanctuaries. You can explore verified salons, choose specialized treatments, pick your preferred specialist, and book instantly. Payments are handled securely, and confirmation is sent directly via email.'
     },
     {
       q: 'Can I select a specific specialist?',
       a: 'Yes, absolutely. During the booking process, you will be presented with a list of available specialists at your selected salon, including their titles, bios, and ratings. You can also select "Any Specialist" if you prefer the earliest available slot.'
     },
     {
-      q: 'What is AURA’s cancellation policy?',
+      q: 'What is Miraia’s cancellation policy?',
       a: 'Cancellations and rescheduling depend on individual salon policies, but generally, we require at least 24 hours notice. You can cancel or reschedule easily by logging into your account and visiting your bookings section.'
     },
     {
@@ -38,7 +38,7 @@ const AboutPage = () => {
             <span className="font-label-lg text-primary uppercase tracking-[0.2em] font-semibold">Our Philosophy</span>
             <h1 className="font-display-lg text-4xl md:text-5xl text-on-surface leading-tight">Your Sanctuary, Simplified.</h1>
             <p className="font-body-lg text-body-lg text-secondary leading-relaxed">
-              At AURA, we believe that self-care is not a luxury, but a necessity for modern living. We seek to curate the finest beauty and wellness sanctuaries so that you can find peace, elegance, and skilled artistry in a single booking.
+              At Miraia, we believe that self-care is not a luxury, but a necessity for modern living. We seek to curate the finest beauty and wellness sanctuaries so that you can find peace, elegance, and skilled artistry in a single booking.
             </p>
           </div>
           <div className="relative rounded-2xl overflow-hidden h-[400px] shadow-lg border border-outline-variant/25">

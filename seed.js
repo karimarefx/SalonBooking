@@ -46,12 +46,12 @@ async function run() {
       },
       {
         id: 'aura-studio',
-        name: 'Aura Atelier',
+        name: 'Atelier Miraia',
         location: 'Tribeca, Manhattan',
         rating: 4.8,
         reviews: 128,
         about: 'Where artistry meets wellness. Our holistic approach ensures not just beautiful hair, but a rejuvenating experience utilizing organic, sustainably sourced products.',
-        description: 'At Aura Atelier, we combine cutting-edge hair styling with organic scalp treatments to promote overall wellness. Our styling stations are designed to give you a private, relaxing experience where our specialists customize every treatment to your hair type. We use sustainably sourced, organic products to ensure both your beauty and health are prioritized.',
+        description: 'At Atelier Miraia, we combine cutting-edge hair styling with organic scalp treatments to promote overall wellness. Our styling stations are designed to give you a private, relaxing experience where our specialists customize every treatment to your hair type. We use sustainably sourced, organic products to ensure both your beauty and health are prioritized.',
         image_url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCYtWqmrU_PEdXrU4UF6K2acuMradFY2IuOsE0TZTXUiShdbnCg680Y5a-zVGdV8osXSPRK7D-SQ_hGk4bYQdMxi-0Ls50rp4xjko_awWKkC-y3owP9cgk1NPrqBye6xZ7gEoTGPSXJmeDbilzXg5e-JBEMTO9I50eSxhSoT46uGvLvHpTamyuRyNQqTDg19kTrPlBx7E32tSn5tMNkS_VVistCXErX_d3R14sUYzvpr3vSZhq39B60P5NXH_64OzsBzCOMWN5o1VU',
         tags: ['Organic Color', 'Scalp Therapy', 'Cut & Style', 'Haircut', 'Color', 'Treatments']
       }
@@ -127,7 +127,7 @@ async function run() {
       },
       {
         salon_id: 'maison-de-beaute',
-        name: 'AURA Gold Facial',
+        name: 'Miraia Gold Facial',
         price: 145.00,
         duration: '60 min',
         category: 'Treatments',
@@ -144,7 +144,7 @@ async function run() {
         image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDZP8x5hbWIZPo53SXW-FV4ON4iRXdVRPpfnY7_pgN-UhrLKEpMAXkph1rJGNiRPmzeNflVLaOw2nAkqC1DUVhP03WXqOoIHngLTbhcY9VgjG-0w2TE82lc7TumpUgcLqII_LyeiRE9lH0yQzHXysvcNNl75x7EHm7eqyLXd2TCzFgECWhl36wNzpazjFSaBs67PhC13vC1hHPcdzzX5nae2xPzFyGYB7Sjfb7JYWBoYD9aU1G3mBs4'
       },
 
-      // Aura Atelier
+      // Atelier Miraia
       {
         salon_id: 'aura-studio',
         name: 'Cut & Style',

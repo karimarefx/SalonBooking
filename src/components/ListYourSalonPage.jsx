@@ -128,7 +128,7 @@ const ListYourSalonPage = () => {
         
         {/* Left Side: Marketing benefits */}
         <section className="lg:col-span-5 space-y-8 lg:sticky lg:top-28">
-          <span className="font-label-lg text-primary uppercase tracking-[0.2em] font-semibold">Aura for Business</span>
+          <span className="font-label-lg text-primary uppercase tracking-[0.2em] font-semibold">Miraia for Business</span>
           <h1 className="font-display-lg text-4xl md:text-5xl text-on-surface leading-tight">Elevate Your Salon & Reach Discerning Clients.</h1>
           <p className="font-body-lg text-body-lg text-secondary">
             Join a curated marketplace designed for premium beauty and wellness businesses. Gain tools to manage appointments, specialists, and growth effortlessly.

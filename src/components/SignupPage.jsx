@@ -63,7 +63,7 @@ const SignupPage = () => {
       <main className="w-full max-w-md mx-auto my-8 bg-white rounded-2xl border border-outline-variant/30 soft-glow overflow-hidden shadow-lg p-6 md:p-8 space-y-6">
         <div className="text-center space-y-2">
           <h2 className="font-headline-lg text-headline-lg text-on-surface font-semibold">Create Account</h2>
-          <p className="font-body-sm text-on-surface-variant">Sign up to AURA to manage your premium beauty services.</p>
+          <p className="font-body-sm text-on-surface-variant">Sign up to Miraia to manage your premium beauty services.</p>
         </div>
 
         <form onSubmit={handleSignupSubmit} className="space-y-6">

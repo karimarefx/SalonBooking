@@ -204,7 +204,7 @@ const LandingPage = () => {
               <div className="grid grid-cols-2">
                 <div className="p-12 flex flex-col justify-center">
                   <h2 className="font-headline-lg text-headline-lg text-on-surface mb-4">Elevate Your Business</h2>
-                  <p className="font-body-md text-body-md text-secondary mb-8">Join the AURA network and connect with discerning clients seeking premium beauty and wellness experiences. Manage bookings effortlessly.</p>
+                  <p className="font-body-md text-body-md text-secondary mb-8">Join the Miraia network and connect with discerning clients seeking premium beauty and wellness experiences. Manage bookings effortlessly.</p>
                   <button 
                     onClick={() => navigate(isAuthenticated ? '/owner/dashboard' : '/owner/portal')}
                     className="bg-primary-container hover:bg-primary text-on-primary px-8 py-3 rounded-lg font-label-lg text-label-lg transition-colors w-fit h-12 flex items-center justify-center"

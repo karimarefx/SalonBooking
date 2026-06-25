@@ -26,8 +26,8 @@ const salonsData = [
   },
   {
     id: 'aura-studio',
-    desktopName: 'Aura Atelier',
-    mobileName: 'AURA Studio',
+    desktopName: 'Atelier Miraia',
+    mobileName: 'Miraia Studio',
     locationDesktop: 'Tribeca, Manhattan • 1.2 mi',
     locationMobile: '1.2 mi • Downtown',
     aboutDesktop: 'Where artistry meets wellness. Our holistic approach ensures not just beautiful hair, but a rejuvenating experience utilizing organic, sustainably sourced products.',
@@ -539,7 +539,7 @@ const SearchResultsPage = () => {
               <span className="material-symbols-outlined">storefront</span>
             </div>
             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-surface-container-lowest p-2 rounded-lg shadow-lg w-40 z-20">
-              <p className="font-label-md text-label-md text-on-surface font-semibold">AURA Studio</p>
+              <p className="font-label-md text-label-md text-on-surface font-semibold">Miraia Studio</p>
               <p className="text-xs text-on-surface-variant">4.9 ★ • from $85</p>
             </div>
           </div>

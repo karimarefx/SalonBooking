@@ -45,17 +45,19 @@ const Navbar = () => {
         <div className="flex items-center gap-8">
           {/* Logo (Desktop) */}
           <button 
-            className="hidden md:block font-display-lg text-display-lg text-primary tracking-tight cursor-pointer focus:outline-none" 
+            className="hidden md:flex items-baseline gap-2 font-display-lg text-display-lg text-primary tracking-tight cursor-pointer focus:outline-none" 
             onClick={() => { navigate('/'); setMobileMenuOpen(false); }}
           >
-            AURA
+            <span>Miraia</span>
+            <span className="font-body-sm text-body-sm font-medium text-secondary tracking-normal opacity-80">· Beauty Booking</span>
           </button>
           {/* Logo (Mobile) */}
           <button 
-            className="md:hidden font-display-lg-mobile text-display-lg-mobile text-primary tracking-tight cursor-pointer focus:outline-none" 
+            className="md:hidden flex items-baseline gap-1.5 font-display-lg-mobile text-display-lg-mobile text-primary tracking-tight cursor-pointer focus:outline-none" 
             onClick={() => { navigate('/'); setMobileMenuOpen(false); }}
           >
-            AURA
+            <span>Miraia</span>
+            <span className="font-label-md text-label-md font-medium text-secondary tracking-normal opacity-75">· Beauty Booking</span>
           </button>
           
           {/* Desktop Navigation Links */}
@@ -146,7 +148,7 @@ const Navbar = () => {
           {/* Drawer content */}
           <div className="relative flex-1 flex flex-col max-w-[280px] w-full bg-surface h-full shadow-lg border-l border-outline-variant/30 ml-auto z-50 p-6 space-y-6">
             <div className="flex items-center justify-between border-b border-outline-variant/30 pb-4">
-              <span className="font-display-lg-mobile text-display-lg-mobile text-primary tracking-tight">AURA</span>
+              <span className="font-display-lg-mobile text-display-lg-mobile text-primary tracking-tight">Miraia</span>
               <button 
                 onClick={() => setMobileMenuOpen(false)}
                 className="text-secondary hover:text-primary focus:outline-none"

@@ -4,12 +4,16 @@ import { useNavigate } from 'react-router-dom';
 const Footer = ({ variant = 'full' }) => {
   const navigate = useNavigate();
 
+  if (variant === 'none') {
+    return null;
+  }
+
   if (variant === 'simple') {
     return (
       <footer className="w-full bg-secondary-container border-t border-outline-variant/20 py-6">
         <div className="max-w-[1200px] mx-auto px-margin-mobile md:px-margin-desktop text-center">
           <p className="font-body-sm text-body-sm text-on-secondary-fixed-variant opacity-80">
-            © 2025 AURA Wellness & Beauty. All rights reserved.
+            © 2025 Miraia Wellness & Beauty. All rights reserved.
           </p>
         </div>
       </footer>
@@ -26,7 +30,7 @@ const Footer = ({ variant = 'full' }) => {
             className="font-display-lg text-headline-lg text-primary cursor-pointer"
             onClick={() => navigate('/')}
           >
-            AURA
+            Miraia
           </span>
           <p className="font-body-sm text-body-sm text-on-secondary-fixed-variant">
             Curating modern elegance for your beauty journey.
@@ -75,7 +79,7 @@ const Footer = ({ variant = 'full' }) => {
             className="font-display-lg text-headline-lg text-primary mb-2 cursor-pointer"
             onClick={() => navigate('/')}
           >
-            AURA
+            Miraia
           </div>
           <p className="font-body-sm text-body-sm text-on-secondary-container opacity-90 mb-4">
             Curating modern elegance for your beauty journey.
@@ -106,10 +110,9 @@ const Footer = ({ variant = 'full' }) => {
         </div>
       </div>
 
-      {/* Copyright Line */}
       <div className="max-w-[1200px] mx-auto px-margin-mobile md:px-margin-desktop pb-8 border-t border-outline-variant/10 pt-4">
         <p className="font-body-sm text-body-sm text-on-secondary-fixed-variant opacity-75 text-center md:text-left">
-          © 2025 AURA Wellness & Beauty. All rights reserved.
+          © 2025 Miraia Wellness & Beauty. All rights reserved.
         </p>
       </div>
     </footer>

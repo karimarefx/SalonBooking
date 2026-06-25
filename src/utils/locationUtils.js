@@ -34,7 +34,7 @@ export const geocodeAddress = async (address) => {
       {
         headers: {
           // OSM requires a valid User-Agent to avoid blocking
-          'User-Agent': 'AURA-Wellness-Booking-System/1.0 (maka@aura-wellness-beauty.com)',
+          'User-Agent': 'Miraia-Beauty-Booking-System/1.0 (maka@miraia-beauty-booking.com)',
         },
       }
     );

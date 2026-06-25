@@ -32,19 +32,19 @@ function App() {
             <Route path="/salon/:id/services" element={<Layout footerVariant="simple"><ServiceSelectionPage /></Layout>} />
             <Route path="/salon/:id/booking/datetime" element={<Layout footerVariant="simple"><DateTimePage /></Layout>} />
             <Route path="/salon/:id/booking/confirm" element={<Layout footerVariant="simple"><ConfirmBookingPage /></Layout>} />
-            <Route path="/booking/success" element={<Layout footerVariant="simple"><BookingSuccessPage /></Layout>} />
+            <Route path="/booking/success" element={<Layout hideNavbar={true} footerVariant="none"><BookingSuccessPage /></Layout>} />
             <Route path="/account/bookings" element={<Layout footerVariant="full"><MyBookingsPage /></Layout>} />
             <Route path="/about" element={<Layout footerVariant="full"><AboutPage /></Layout>} />
 
             {/* Owner / auth routes */}
-            <Route path="/login" element={<Layout footerVariant="simple"><LoginPage /></Layout>} />
-            <Route path="/signup" element={<Layout footerVariant="simple"><SignupPage /></Layout>} />
+            <Route path="/login" element={<Layout hideNavbar={true} footerVariant="none"><LoginPage /></Layout>} />
+            <Route path="/signup" element={<Layout hideNavbar={true} footerVariant="none"><SignupPage /></Layout>} />
             <Route path="/owner/portal" element={<Layout footerVariant="simple"><ListYourSalonPage /></Layout>} />
             <Route
               path="/owner/dashboard"
               element={
                 <OwnerRoute>
-                  <Layout footerVariant="simple">
+                  <Layout hideNavbar={true} footerVariant="none">
                     <OwnerDashboard />
                   </Layout>
                 </OwnerRoute>

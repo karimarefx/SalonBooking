@@ -22,7 +22,7 @@ const SalonProfilePage = () => {
   ];
 
   // Define salon details based on URL id
-  const isAura = id === 'aura-studio';
+  const isDefaultStudio = id === 'aura-studio';
 
   useEffect(() => {
     const loadSalonData = async () => {
@@ -304,7 +304,7 @@ const SalonProfilePage = () => {
                 </div>
               </div>
             </div>
-            <p className="mt-4 text-body-md text-on-surface">{isAura ? '124 Grand St, New York' : '18 Mercer St, New York'}</p>
+            <p className="mt-4 text-body-md text-on-surface">{isDefaultStudio ? '124 Grand St, New York' : '18 Mercer St, New York'}</p>
             <p className="text-body-sm text-on-surface-variant">Closed • Opens 10:00 AM Tue</p>
           </section>
 
