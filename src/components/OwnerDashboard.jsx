@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
+import PhotoUploader from './gallery/PhotoUploader';
 
 const OwnerDashboard = () => {
   const navigate = useNavigate();
@@ -427,38 +428,9 @@ const OwnerDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-on-surface font-body-md antialiased flex flex-col justify-between">
-      
-      {/* Header */}
-      <header className="bg-white border-b border-outline-variant/30 sticky top-0 z-40">
-        <div className="max-w-[1400px] mx-auto px-margin-mobile md:px-margin-desktop h-20 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span 
-              onClick={() => navigate('/')} 
-              className="font-display-lg text-2xl md:text-3xl text-primary tracking-widest uppercase cursor-pointer"
-            >
-              AURA
-            </span>
-            <span className="bg-secondary-container text-on-secondary-container text-xs px-2.5 py-1 rounded font-semibold tracking-wider uppercase">
-              Owner Panel
-            </span>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="hidden md:inline font-label-lg text-sm font-semibold text-secondary">
-              {user?.email}
-            </span>
-            <button
-              onClick={async () => { await signOut(); navigate('/login'); }}
-              className="border border-outline hover:bg-surface-container text-on-surface-variant text-xs font-label-lg px-4 py-2 rounded-lg"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </header>
-
+    <div className="bg-background text-on-surface font-body-md antialiased">
       {/* Main dashboard content */}
-      <div className="flex-grow max-w-[1400px] w-full mx-auto px-margin-mobile md:px-margin-desktop py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="max-w-[1200px] w-full mx-auto px-margin-mobile md:px-margin-desktop py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
         {/* Sidebar Nav */}
         <aside className="lg:col-span-3 bg-white p-4 rounded-xl border border-outline-variant/30 space-y-1 shadow-sm">
@@ -500,6 +472,13 @@ const OwnerDashboard = () => {
           >
             <span className="material-symbols-outlined text-lg">badge</span>
             <span>Team Specialists</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('gallery')}
+            className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${activeTab === 'gallery' ? 'bg-primary text-white font-semibold' : 'text-on-surface-variant hover:bg-surface-container'}`}
+          >
+            <span className="material-symbols-outlined text-lg">photo_library</span>
+            <span>Gallery</span>
           </button>
           <button 
             onClick={() => setActiveTab('settings')}
@@ -857,6 +836,11 @@ const OwnerDashboard = () => {
                 ))}
               </div>
             </div>
+          )}
+
+          {/* TAB: GALLERY */}
+          {activeTab === 'gallery' && (
+            <PhotoUploader salonId={salon.id} />
           )}
 
           {/* TAB 5: SALON SETTINGS */}
@@ -1269,13 +1253,6 @@ const OwnerDashboard = () => {
           </div>
         </div>
       )}
-
-      {/* Footer */}
-      <footer className="bg-secondary-container dark:bg-surface-container border-t border-outline-variant/20 py-8 text-center text-body-sm text-secondary">
-        <div className="max-w-[1400px] mx-auto px-margin-desktop">
-          <p>© 2024 AURA Wellness & Beauty. All rights reserved.</p>
-        </div>
-      </footer>
 
     </div>
   );

@@ -29,26 +29,7 @@ const AboutPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background text-on-surface font-body-md antialiased pb-24">
-      {/* Header */}
-      <header className="bg-surface sticky top-0 z-50 w-full shadow-sm border-b border-outline-variant/30">
-        <div className="max-w-[1200px] mx-auto px-margin-mobile md:px-margin-desktop h-20 flex items-center justify-between">
-          <span 
-            onClick={() => navigate('/')} 
-            className="font-display-lg text-[24px] md:text-display-lg text-primary tracking-widest uppercase cursor-pointer"
-          >
-            AURA
-          </span>
-          <nav className="hidden md:flex items-center gap-8 font-label-lg">
-            <span className="text-secondary hover:text-primary transition-colors cursor-pointer" onClick={() => navigate('/')}>Explore</span>
-            <span className="text-secondary hover:text-primary transition-colors cursor-pointer" onClick={() => navigate('/specials')}>Specials</span>
-            <span className="text-primary border-b-2 border-primary pb-1 cursor-pointer">About</span>
-          </nav>
-          <div className="flex items-center gap-4">
-            <button className="bg-primary text-on-primary px-6 py-3 rounded-lg font-label-lg hover:bg-primary-container transition-all" onClick={() => navigate('/search')}>Book Now</button>
-          </div>
-        </div>
-      </header>
+    <div className="bg-background text-on-surface font-body-md antialiased">
 
       {/* Hero Narrative */}
       <section className="relative py-20 px-margin-mobile md:px-margin-desktop bg-[#FDF2F0] border-b border-outline-variant/10">
@@ -143,12 +124,6 @@ const AboutPage = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-secondary-container dark:bg-surface-container full-width border-t border-outline-variant/20">
-        <div className="max-w-[1200px] mx-auto px-margin-desktop py-8 text-center text-body-sm text-secondary">
-          <p>© 2024 AURA Wellness & Beauty. All rights reserved.</p>
-        </div>
-      </footer>
     </div>
   );
 };

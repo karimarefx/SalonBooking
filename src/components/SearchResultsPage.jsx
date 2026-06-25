@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useBooking } from '../context/BookingContext';
 import { useAuth } from '../context/AuthContext';
+import { useGeolocation } from '../hooks/useGeolocation';
+import { haversineDistance, geocodeAddress } from '../utils/locationUtils';
 
 const salonsData = [
   {
@@ -48,17 +50,39 @@ const SearchResultsPage = () => {
   const { searchQuery, setSearchQuery, searchLocation, setSearchLocation, fetchSalons } = useBooking();
   const { isAuthenticated } = useAuth();
   
+  // Geolocation
+  const { lat: browserLat, lng: browserLng, permissionState } = useGeolocation();
+  const [customCoords, setCustomCoords] = useState(null);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+
   // Local state for filters and UI toggle
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'map'
   const [salons, setSalons] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState('rating'); // 'rating', 'name', 'reviews'
+  const [sortBy, setSortBy] = useState('rating'); // 'rating', 'name', 'reviews', 'distance'
   const [activeTag, setActiveTag] = useState(''); // filter by tag
 
   // Sync parameters from context or URL search params
-  const [queryInput, setQueryInput] = useState(searchParams.get('query') || searchQuery || 'Hair Salon');
-  const [locationInput, setLocationInput] = useState(searchParams.get('location') || searchLocation || 'New York');
+  const [queryInput, setQueryInput] = useState(searchParams.get('query') || searchQuery || '');
+  const [locationInput, setLocationInput] = useState(searchParams.get('location') || searchLocation || '');
+
+  const geocodeLocationText = async (text) => {
+    if (!text || !text.trim()) {
+      setCustomCoords(null);
+      return;
+    }
+    setIsGeocoding(true);
+    try {
+      const coords = await geocodeAddress(text);
+      setCustomCoords(coords);
+    } catch (err) {
+      console.error('Geocoding failed for text:', text, err);
+      setCustomCoords(null);
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
 
   useEffect(() => {
     const loadSalons = async () => {
@@ -78,21 +102,23 @@ const SearchResultsPage = () => {
   useEffect(() => {
     const q = searchParams.get('query');
     const loc = searchParams.get('location');
-    if (q) {
+    if (q !== null) {
       setSearchQuery(q);
       setQueryInput(q);
     }
-    if (loc) {
+    if (loc !== null) {
       setSearchLocation(loc);
       setLocationInput(loc);
+      geocodeLocationText(loc);
     }
   }, [searchParams]);
 
-  const handleSearchSubmit = (e) => {
+  const handleSearchSubmit = async (e) => {
     if (e) e.preventDefault();
     setSearchQuery(queryInput);
     setSearchLocation(locationInput);
     setSearchParamsState({ query: queryInput, location: locationInput });
+    await geocodeLocationText(locationInput);
   };
 
   const handleSalonSelect = (id) => {
@@ -102,10 +128,34 @@ const SearchResultsPage = () => {
   const currentQuery = searchParams.get('query') || searchQuery || '';
   const currentLocation = searchParams.get('location') || searchLocation || '';
 
+  const activeLat = customCoords?.lat ?? browserLat;
+  const activeLng = customCoords?.lng ?? browserLng;
+  const isLocationAvailable = activeLat !== null && activeLng !== null;
+
+  // Automatically default to distance sorting if location is available and we haven't selected anything else yet
+  useEffect(() => {
+    if (isLocationAvailable && sortBy === 'rating' && !searchParams.get('sort')) {
+      setSortBy('distance');
+    }
+  }, [isLocationAvailable]);
+
   // Collect all unique tags from loaded salons for filter pills
   const allTags = [...new Set(salons.flatMap(s => s.tags || []))].sort();
 
-  const filteredSalons = salons
+  const salonsWithDistance = salons.map((s) => {
+    if (activeLat !== null && activeLng !== null && s.latitude !== null && s.longitude !== null) {
+      const distance = haversineDistance(
+        parseFloat(activeLat),
+        parseFloat(activeLng),
+        parseFloat(s.latitude),
+        parseFloat(s.longitude)
+      );
+      return { ...s, distance };
+    }
+    return { ...s, distance: null };
+  });
+
+  const filteredSalons = salonsWithDistance
     .filter(s => {
       // Text search
       if (currentQuery) {
@@ -115,8 +165,8 @@ const SearchResultsPage = () => {
         const tagMatch = s.tags && s.tags.some(tag => tag.toLowerCase().includes(q));
         if (!nameMatch && !aboutMatch && !tagMatch) return false;
       }
-      // Location filter
-      if (currentLocation) {
+      // Location filter: if we have geocoded coordinates, we don't strictly require string matching
+      if (currentLocation && !customCoords) {
         const loc = currentLocation.toLowerCase();
         if (s.location && !s.location.toLowerCase().includes(loc)) return false;
       }
@@ -127,6 +177,11 @@ const SearchResultsPage = () => {
       return true;
     })
     .sort((a, b) => {
+      if (sortBy === 'distance' && isLocationAvailable) {
+        if (a.distance === null) return 1;
+        if (b.distance === null) return -1;
+        return a.distance - b.distance;
+      }
       if (sortBy === 'rating') return parseFloat(b.rating || 0) - parseFloat(a.rating || 0);
       if (sortBy === 'reviews') return (b.reviews || 0) - (a.reviews || 0);
       if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '');
@@ -134,141 +189,135 @@ const SearchResultsPage = () => {
     });
 
   return (
-    <div className="min-h-screen bg-surface text-on-surface font-body-md text-body-md antialiased flex flex-col pb-[80px] md:pb-0">
+    <div className="bg-surface text-on-surface font-body-md text-body-md antialiased flex flex-col">
       
-      {/* Header (Desktop: full-width search summary; Mobile: search header) */}
-      <header className="bg-surface-container-lowest sticky top-0 z-40 border-b border-outline-variant/30 shadow-sm transition-transform duration-200">
-        
-        {/* Desktop Header Navigation */}
-        <div className="hidden md:flex max-w-[1200px] mx-auto px-margin-desktop h-20 items-center justify-between gap-6">
-          <div className="flex items-center gap-8 flex-1">
-            <a 
-              className="font-display-lg text-display-lg text-primary tracking-tight cursor-pointer"
-              onClick={() => navigate('/')}
-            >
-              AURA
-            </a>
-            {/* Search Bar in Header */}
-            <form onSubmit={handleSearchSubmit} className="flex relative flex-1 max-w-lg items-center border-b border-outline-variant focus-within:border-primary transition-colors pb-1">
-              <span className="material-symbols-outlined text-secondary mr-2">search</span>
+      {/* Search & Filter Header Area (inside the page content) */}
+      <div className="w-full bg-surface-container-lowest border-b border-outline-variant/30 py-4 shadow-sm">
+        <div className="max-w-[1200px] mx-auto px-margin-mobile md:px-margin-desktop">
+          {/* Desktop Search Bar Row */}
+          <div className="hidden md:flex items-center justify-between gap-6">
+            <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 bg-surface border border-outline-variant/50 rounded-full px-6 py-2.5 max-w-xl flex-1 shadow-sm focus-within:border-primary-container transition-all">
+              <span className="material-symbols-outlined text-outline">search</span>
               <input 
-                className="bg-transparent border-none focus:ring-0 p-0 font-body-md text-body-md text-on-surface w-1/3 outline-none" 
-                placeholder="Service" 
+                className="bg-transparent border-none focus:ring-0 p-0 font-body-md text-body-md text-on-surface w-1/2 outline-none" 
+                placeholder="Service (e.g. Balayage)" 
                 type="text" 
                 value={queryInput}
                 onChange={(e) => setQueryInput(e.target.value)}
               />
-              <div className="h-4 w-px bg-outline-variant mx-3"></div>
-              <span className="material-symbols-outlined text-secondary mr-2">location_on</span>
+              <div className="h-5 w-px bg-outline-variant/50 mx-2"></div>
+              <span className="material-symbols-outlined text-outline">location_on</span>
               <input 
                 className="bg-transparent border-none focus:ring-0 p-0 font-body-md text-body-md text-on-surface flex-1 outline-none" 
-                placeholder="Location" 
+                placeholder="Location or City" 
                 type="text" 
                 value={locationInput}
                 onChange={(e) => setLocationInput(e.target.value)}
               />
-              <button type="submit" className="hidden"></button>
+              <button type="submit" className="bg-primary-container text-on-primary font-label-md px-5 py-1.5 rounded-full hover:bg-primary transition-colors">
+                Search
+              </button>
             </form>
-          </div>
-          <nav className="hidden lg:flex items-center gap-8 font-body-md">
-            <button className="text-primary font-semibold border-b-2 border-primary pb-1 hover:text-primary-container transition-colors duration-300" onClick={() => navigate('/')}>Explore</button>
-            <button className="text-secondary font-medium hover:text-primary-container transition-colors duration-300" onClick={() => navigate('/specials')}>Specials</button>
-            <button className="text-secondary font-medium hover:text-primary-container transition-colors duration-300" onClick={() => navigate('/about')}>About</button>
-          </nav>
-          <div className="flex items-center gap-6">
-            {isAuthenticated ? (
-              <button className="font-label-lg text-label-lg text-primary hover:text-primary-container transition-colors" onClick={() => navigate('/owner/dashboard')}>Owner Dashboard</button>
-            ) : (
-              <button className="font-label-lg text-label-lg text-primary hover:text-primary-container transition-colors" onClick={() => navigate('/owner/portal')}>List Your Salon</button>
-            )}
-            <button className="font-label-lg text-label-lg text-primary hover:text-primary-container transition-colors" onClick={() => navigate('/account/bookings')}>My Bookings</button>
-            <div className="flex items-center gap-4">
-              <button aria-label="calendar_today" onClick={() => navigate('/account/bookings')} className="material-symbols-outlined text-primary hover:text-primary-container transition-colors duration-300 active:scale-95">calendar_today</button>
-              <button aria-label="account_circle" onClick={() => navigate(isAuthenticated ? '/owner/dashboard' : '/login')} className="material-symbols-outlined text-primary hover:text-primary-container transition-colors duration-300 active:scale-95">account_circle</button>
-            </div>
-          </div>
-        </div>
 
-        {/* Mobile Header (Search/Location & Filter Drawer trigger) */}
-        <div className="md:hidden flex flex-col gap-base px-margin-mobile py-stack-sm">
-          <div className="flex items-center justify-between">
-            <button 
-              aria-label="Go back" 
-              className="text-on-surface p-2 -ml-2 rounded-full hover:bg-surface-container transition-colors"
-              onClick={() => navigate('/')}
-            >
-              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'wght' 300" }}>arrow_back</span>
-            </button>
-            <form onSubmit={handleSearchSubmit} className="flex-1 px-4">
-              <div className="relative w-full">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]" style={{ fontVariationSettings: "'wght' 300" }}>search</span>
-                <input 
-                  className="w-full bg-surface-container pl-10 pr-4 py-2 rounded-full font-body-sm text-body-sm text-on-surface border-none focus:ring-1 focus:ring-primary-container outline-none" 
-                  placeholder="Search..." 
-                  type="text" 
-                  value={queryInput}
-                  onChange={(e) => setQueryInput(e.target.value)}
-                />
-              </div>
-            </form>
-            <button 
-              aria-label="Filters" 
-              className="text-on-surface p-2 -mr-2 rounded-full hover:bg-surface-container transition-colors relative"
-              onClick={() => setIsFilterDrawerOpen(true)}
-            >
-              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'wght' 300" }}>tune</span>
-              <span className="absolute top-1 right-1 w-2 h-2 bg-primary-container rounded-full"></span>
-            </button>
-          </div>
-          <div className="flex items-center justify-between mt-2">
-            <p className="font-body-sm text-body-sm text-on-surface-variant">Showing 24 results</p>
-            <div className="flex bg-surface-container rounded-full p-1 border border-outline-variant/30">
+            {/* List/Map Mode Toggles */}
+            <div className="flex bg-surface-container rounded-full p-1 border border-outline-variant/30 shadow-inner">
               <button 
-                className={`px-4 py-1.5 rounded-full font-label-md text-label-md transition-all flex items-center gap-1 ${viewMode === 'list' ? 'bg-surface-container-lowest text-on-surface shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
+                className={`px-4 py-1.5 rounded-full font-label-md text-label-md transition-all flex items-center gap-1 ${viewMode === 'list' ? 'bg-surface-container-lowest text-on-surface shadow-sm font-semibold' : 'text-on-surface-variant hover:text-on-surface'}`}
                 onClick={() => setViewMode('list')}
               >
                 <span className="material-symbols-outlined text-[16px]">format_list_bulleted</span> List
               </button>
               <button 
-                className={`px-4 py-1.5 rounded-full font-label-md text-label-md transition-all flex items-center gap-1 ${viewMode === 'map' ? 'bg-surface-container-lowest text-on-surface shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
+                className={`px-4 py-1.5 rounded-full font-label-md text-label-md transition-all flex items-center gap-1 ${viewMode === 'map' ? 'bg-surface-container-lowest text-on-surface shadow-sm font-semibold' : 'text-on-surface-variant hover:text-on-surface'}`}
                 onClick={() => setViewMode('map')}
               >
                 <span className="material-symbols-outlined text-[16px]">map</span> Map
               </button>
             </div>
           </div>
-          {/* Sort & Filter Controls */}
-          <div className="flex items-center justify-between gap-4">
+
+          {/* Mobile Search Bar Row */}
+          <div className="md:hidden flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <form onSubmit={handleSearchSubmit} className="flex-1">
+                <div className="relative w-full">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span>
+                  <input 
+                    className="w-full bg-surface-container pl-10 pr-4 py-2.5 rounded-full font-body-sm text-body-sm text-on-surface border-none focus:ring-1 focus:ring-primary-container outline-none" 
+                    placeholder="Search treatments or salons..." 
+                    type="text" 
+                    value={queryInput}
+                    onChange={(e) => setQueryInput(e.target.value)}
+                  />
+                </div>
+              </form>
+              <button 
+                aria-label="Filters" 
+                className="text-on-surface p-2.5 bg-surface-container border border-outline-variant/30 rounded-full hover:bg-surface-container-high transition-colors relative"
+                onClick={() => setIsFilterDrawerOpen(true)}
+              >
+                <span className="material-symbols-outlined block text-[20px]">tune</span>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <p className="font-body-sm text-body-sm text-on-surface-variant">
+                {filteredSalons.length} {filteredSalons.length === 1 ? 'salon' : 'salons'} found
+              </p>
+              
+              <div className="flex bg-surface-container rounded-full p-0.5 border border-outline-variant/30">
+                <button 
+                  className={`px-3 py-1 rounded-full font-label-md text-xs transition-all ${viewMode === 'list' ? 'bg-surface-container-lowest text-on-surface shadow-sm font-semibold' : 'text-on-surface-variant'}`}
+                  onClick={() => setViewMode('list')}
+                >
+                  List
+                </button>
+                <button 
+                  className={`px-3 py-1 rounded-full font-label-md text-xs transition-all ${viewMode === 'map' ? 'bg-surface-container-lowest text-on-surface shadow-sm font-semibold' : 'text-on-surface-variant'}`}
+                  onClick={() => setViewMode('map')}
+                >
+                  Map
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Filter Tag Scrollbar */}
+          <div className="flex items-center justify-between gap-4 mt-4 border-t border-outline-variant/10 pt-3">
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide flex-1">
               <button
                 onClick={() => setActiveTag('')}
-                className={`shrink-0 px-4 py-1.5 rounded-full border font-label-md text-label-md transition-colors ${!activeTag ? 'border-primary-container bg-secondary-container text-on-secondary-container' : 'border-outline-variant bg-surface-container-lowest text-on-surface-variant'}`}
+                className={`shrink-0 px-4 py-1 rounded-full border font-label-md text-label-md transition-colors ${!activeTag ? 'border-primary-container bg-secondary-container text-on-secondary-container font-semibold' : 'border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-primary'}`}
               >
-                All
+                All Services
               </button>
-              {allTags.slice(0, 8).map(tag => (
+              {allTags.map(tag => (
                 <button
                   key={tag}
                   onClick={() => setActiveTag(activeTag === tag ? '' : tag)}
-                  className={`shrink-0 px-4 py-1.5 rounded-full border font-label-md text-label-md transition-colors ${activeTag === tag ? 'border-primary-container bg-secondary-container text-on-secondary-container' : 'border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-primary'}`}
+                  className={`shrink-0 px-4 py-1 rounded-full border font-label-md text-label-md transition-colors ${activeTag === tag ? 'border-primary-container bg-secondary-container text-on-secondary-container font-semibold' : 'border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-primary'}`}
                 >
                   {tag}
                 </button>
               ))}
             </div>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="shrink-0 bg-surface border border-outline-variant rounded-lg py-1.5 px-3 font-body-sm text-sm outline-none focus:border-primary"
-            >
-              <option value="rating">Top Rated</option>
-              <option value="reviews">Most Reviewed</option>
-              <option value="name">Name A-Z</option>
-            </select>
+            
+            <div className="hidden md:flex items-center gap-2">
+              <span className="font-body-sm text-body-sm text-on-surface-variant whitespace-nowrap">Sort by:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-surface border border-outline-variant rounded-lg py-1 px-3 font-body-sm text-sm outline-none focus:border-primary cursor-pointer"
+              >
+                {isLocationAvailable && <option value="distance">Nearest</option>}
+                <option value="rating">Top Rated</option>
+                <option value="reviews">Most Reviewed</option>
+                <option value="name">Name A-Z</option>
+              </select>
+            </div>
           </div>
         </div>
-
-      </header>
+      </div>
 
       {/* Main Content Area */}
       <main className="flex-1 w-full max-w-[1200px] mx-auto px-margin-mobile md:px-margin-desktop py-stack-md lg:py-stack-lg flex flex-col lg:flex-row gap-gutter relative">
@@ -335,13 +384,20 @@ const SearchResultsPage = () => {
 
           {/* Header Summary for Desktop */}
           <div className="hidden md:flex items-center justify-between mb-2">
-            <h1 className="font-headline-lg text-headline-lg text-on-surface">124 Premium Salons in {locationInput}</h1>
+            <h1 className="font-headline-lg text-headline-lg text-on-surface">
+              {filteredSalons.length} {filteredSalons.length === 1 ? 'Premium Salon' : 'Premium Salons'} {locationInput ? `in ${locationInput}` : 'Near You'}
+            </h1>
             <div className="flex items-center gap-2">
               <span className="font-body-sm text-body-sm text-on-surface-variant">Sort by:</span>
-              <select className="bg-transparent border-none focus:ring-0 p-0 font-label-md text-label-md text-primary cursor-pointer pr-4">
-                <option>Recommended</option>
-                <option>Highest Rated</option>
-                <option>Distance</option>
+              <select 
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-transparent border-none focus:ring-0 p-0 font-label-md text-label-md text-primary cursor-pointer pr-4 outline-none"
+              >
+                {isLocationAvailable && <option value="distance">Nearest</option>}
+                <option value="rating">Top Rated</option>
+                <option value="reviews">Most Reviewed</option>
+                <option value="name">Name A-Z</option>
               </select>
             </div>
           </div>
@@ -373,6 +429,11 @@ const SearchResultsPage = () => {
                   <div className="md:hidden absolute bottom-3 left-3 bg-surface-container-lowest/90 backdrop-blur-sm px-2 py-1 rounded text-xs font-medium text-on-surface flex items-center gap-1 shadow-sm">
                     <span className="material-symbols-outlined text-[14px] text-primary-container block" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
                     {s.rating} ({s.reviews})
+                    {s.distance !== null && (
+                      <span className="ml-1 pl-1 border-l border-outline-variant text-primary font-semibold">
+                        {s.distance.toFixed(1)} km
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="p-6 flex-1 flex flex-col justify-between cursor-pointer" onClick={() => handleSalonSelect(s.id)}>
@@ -399,6 +460,11 @@ const SearchResultsPage = () => {
                     <p className="font-body-sm text-body-sm text-on-surface-variant mb-4 flex items-center gap-1">
                       <span className="material-symbols-outlined text-[16px] block">location_on</span> 
                       <span>{s.location}</span>
+                      {s.distance !== null && (
+                        <span className="ml-2 px-2.5 py-0.5 bg-primary/10 text-primary font-semibold rounded-full text-xs">
+                          {s.distance.toFixed(1)} km away
+                        </span>
+                      )}
                     </p>
                     <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mb-4">
                       <span>{s.about}</span>
@@ -423,7 +489,7 @@ const SearchResultsPage = () => {
                         {s.id === 'aura-studio' ? '$$$ • Haircuts from $130' : '$$$ • Haircuts from $140'}
                       </span>
                       <button 
-                        className="w-full sm:w-auto px-6 py-3 bg-primary-container text-on-primary-container font-label-lg text-label-lg rounded-DEFAULT hover:bg-inverse-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary-container font-semibold"
+                        className="w-full sm:w-auto px-6 py-3 bg-primary-container text-on-primary font-label-lg text-label-lg rounded-DEFAULT hover:bg-inverse-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary-container font-semibold"
                         onClick={() => handleSalonSelect(s.id)}
                       >
                         <span className="hidden md:inline">Book Now</span>
@@ -442,7 +508,7 @@ const SearchResultsPage = () => {
                 <p className="text-body-sm text-on-surface-variant">No salons found — try a different search (e.g. "Haircut", "Balayage", "Atelier").</p>
                 <button 
                   onClick={() => { setQueryInput(''); setLocationInput(''); setSearchParamsState({ query: '', location: '' }); }}
-                  className="bg-primary-container text-white px-6 py-2.5 rounded font-label-md text-label-md hover:bg-primary transition-colors cursor-pointer font-semibold uppercase tracking-wider"
+                  className="bg-primary-container text-on-primary px-6 py-2.5 rounded font-label-md text-label-md hover:bg-primary transition-colors cursor-pointer font-semibold uppercase tracking-wider"
                 >
                   Clear Search
                 </button>
@@ -512,17 +578,47 @@ const SearchResultsPage = () => {
           <div>
             <h3 className="font-label-lg text-label-lg text-on-surface mb-3 uppercase tracking-wider">Sort By</h3>
             <div className="flex flex-col gap-3">
-              <label className="flex items-center gap-3">
-                <input defaultChecked className="text-primary-container focus:ring-primary-container" name="sort" type="radio" />
-                <span className="font-body-md text-body-md text-on-surface">Recommended</span>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input 
+                  type="radio" 
+                  name="sort"
+                  checked={sortBy === 'rating'}
+                  onChange={() => setSortBy('rating')}
+                  className="text-primary-container focus:ring-primary-container" 
+                />
+                <span className="font-body-md text-body-md text-on-surface">Top Rated / Recommended</span>
               </label>
-              <label className="flex items-center gap-3">
-                <input className="text-primary-container focus:ring-primary-container" name="sort" type="radio" />
-                <span className="font-body-md text-body-md text-on-surface">Distance (Nearest first)</span>
+              {isLocationAvailable && (
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input 
+                    type="radio" 
+                    name="sort"
+                    checked={sortBy === 'distance'}
+                    onChange={() => setSortBy('distance')}
+                    className="text-primary-container focus:ring-primary-container" 
+                  />
+                  <span className="font-body-md text-body-md text-on-surface">Distance (Nearest first)</span>
+                </label>
+              )}
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input 
+                  type="radio" 
+                  name="sort"
+                  checked={sortBy === 'reviews'}
+                  onChange={() => setSortBy('reviews')}
+                  className="text-primary-container focus:ring-primary-container" 
+                />
+                <span className="font-body-md text-body-md text-on-surface">Most Reviewed</span>
               </label>
-              <label className="flex items-center gap-3">
-                <input className="text-primary-container focus:ring-primary-container" name="sort" type="radio" />
-                <span className="font-body-md text-body-md text-on-surface">Rating (Highest first)</span>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input 
+                  type="radio" 
+                  name="sort"
+                  checked={sortBy === 'name'}
+                  onChange={() => setSortBy('name')}
+                  className="text-primary-container focus:ring-primary-container" 
+                />
+                <span className="font-body-md text-body-md text-on-surface">Name A-Z</span>
               </label>
             </div>
           </div>
@@ -568,47 +664,6 @@ const SearchResultsPage = () => {
           </button>
         </div>
       </div>
-
-      {/* Footer */}
-      <footer className="bg-secondary-container dark:bg-surface-container full-width border-t border-outline-variant/20 mt-auto">
-        <div className="max-w-[1200px] mx-auto px-margin-desktop py-stack-lg flex flex-col md:flex-row justify-between items-start gap-gutter">
-          <div className="flex flex-col gap-4 max-w-sm">
-            <span className="font-display-lg-mobile text-display-lg-mobile text-primary dark:text-primary-fixed-dim">AURA</span>
-            <p className="font-body-sm text-body-sm text-on-secondary-fixed-variant">
-              © 2024 AURA Wellness. Designed for modern elegance.
-            </p>
-          </div>
-          <nav className="flex flex-wrap md:flex-col gap-4 md:gap-2 mt-8 md:mt-0">
-            <a className="font-body-sm text-body-sm text-on-secondary-fixed-variant hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary-container" href="#">Contact Us</a>
-            <a className="font-body-sm text-body-sm text-on-secondary-fixed-variant hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary-container" href="#">Salon Partnerships</a>
-            <a className="font-body-sm text-body-sm text-on-secondary-fixed-variant hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary-container" href="#">Privacy Policy</a>
-            <a className="font-body-sm text-body-sm text-on-secondary-fixed-variant hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary-container" href="#">Terms of Service</a>
-            <a className="font-body-sm text-body-sm text-on-secondary-fixed-variant hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary-container" href="#">Newsletter</a>
-          </nav>
-        </div>
-      </footer>
-
-      {/* Mobile Bottom Navigation (Visible below 768px only) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 w-full bg-surface-container-lowest border-t border-outline-variant/20 z-50 px-6 py-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        <ul className="flex justify-between items-center">
-          <li className="flex-1 flex flex-col items-center justify-center text-primary cursor-pointer">
-            <span className="material-symbols-outlined text-[24px] mb-1" style={{ fontVariationSettings: "'FILL' 1" }}>search</span>
-            <span className="font-label-md text-[10px] font-semibold">Explore</span>
-          </li>
-          <li className="flex-1 flex flex-col items-center justify-center text-secondary hover:text-primary-container transition-colors cursor-pointer">
-            <span className="material-symbols-outlined text-[24px] mb-1" style={{ fontVariationSettings: "'FILL' 0" }}>local_offer</span>
-            <span className="font-label-md text-[10px]">Specials</span>
-          </li>
-          <li className="flex-1 flex flex-col items-center justify-center text-secondary hover:text-primary-container transition-colors cursor-pointer" onClick={() => navigate('/search')}>
-            <span className="material-symbols-outlined text-[24px] mb-1" style={{ fontVariationSettings: "'FILL' 0" }}>calendar_today</span>
-            <span className="font-label-md text-[10px]">Bookings</span>
-          </li>
-          <li className="flex-1 flex flex-col items-center justify-center text-secondary hover:text-primary-container transition-colors cursor-pointer" onClick={() => navigate('/login')}>
-            <span className="material-symbols-outlined text-[24px] mb-1" style={{ fontVariationSettings: "'FILL' 0" }}>account_circle</span>
-            <span className="font-label-md text-[10px]">Profile</span>
-          </li>
-        </ul>
-      </nav>
 
     </div>
   );

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useBooking } from '../context/BookingContext';
+import { supabase } from '../supabaseClient';
+import PhotoGallery from './gallery/PhotoGallery';
 
 const SalonProfilePage = () => {
   const { id } = useParams();
@@ -10,7 +12,14 @@ const SalonProfilePage = () => {
   const [salon, setSalon] = useState(null);
   const [services, setServices] = useState([]);
   const [specialists, setSpecialists] = useState([]);
+  const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const defaultImages = [
+    "https://lh3.googleusercontent.com/aida-public/AB6AXuA9IQM4A0tyNLLJQBLJKHYbekjL3jhR9kY6f3MR77M370Ii_YHzp-x-luJMPiAYL6Z5kXaoLYKx8QpN2ZTSb4DDQ72j63zbH2DZeECyXqlNhtVDwqnsu1mh2a2yw5bjAdD3kUgXVPwXCbTz98khejOha35DhGBUmdd4jsfBmDoNumYDzZfS1VUfhIPyRXsKNmqTQ5kBa9ePFAymajaxuB1MNZIe6uHT7wDWs4t2L-oLBheR8v__c4zz",
+    "https://lh3.googleusercontent.com/aida-public/AB6AXuCdTTZbadtsbEQBuySekR_agdCVvJsemKPfJvDSe-1Pq7_hz8JXPgpSA9ELKEnpTOMzzCJprUOC6il_wNXSkSqIN3o6VJq5ABXwhUFlSdmrzysn-RY9nVMc16ZlZ9QZl3gafuUVFQqv5XHa8oJSSMmkf5RulYB53MxXvPXoTaCilnuMXkN9456cjG1qX0LIZZyIAEywtzdVJxAOX-dbARdmsCHMojjPcbDVGGJ__zpHKqnjzD_OlZzH",
+    "https://lh3.googleusercontent.com/aida-public/AB6AXuCxw4e5VCLKhm4FRCt9CwiA5Y1kiVtLbd5Z7oFE-3bL-NSZoi8NRrDABWo1lO8Jps9omIly0nV1b66J7C36MeUeOJfAxmNzhCycK1MVKUt0Omp5C4m6ZX-s0lUDgDJVl21mxfrg9xRiixGRRXZPB2RCjtjcOEQa8Hh3-6QSxhhSuvwaypePjf82b_sPTYl1Xtzq5p7m6ApIO2rYUDp5wetcxMAIY02qfjvPHh_I5fEwhNpRkgDnhAxS"
+  ];
 
   // Define salon details based on URL id
   const isAura = id === 'aura-studio';
@@ -23,9 +32,19 @@ const SalonProfilePage = () => {
         const servicesData = await fetchServicesBySalon(id);
         const specialistsData = await fetchSpecialistsBySalon(id);
 
+        // Fetch photos
+        const { data: photosData, error: photosErr } = await supabase
+          .from('salon_photos')
+          .select('*')
+          .eq('salon_id', id)
+          .order('display_order', { ascending: true });
+
         setSalon(salonData);
         setServices(servicesData || []);
         setSpecialists(specialistsData || []);
+        if (!photosErr) {
+          setPhotos(photosData || []);
+        }
       } catch (err) {
         console.error('Failed to load salon details from Supabase:', err);
       } finally {
@@ -53,7 +72,7 @@ const SalonProfilePage = () => {
       <div className="min-h-screen bg-background text-on-surface flex flex-col items-center justify-center gap-4">
         <span className="material-symbols-outlined text-5xl text-outline">search_off</span>
         <p className="font-body-lg text-secondary">Sanctuary not found</p>
-        <button onClick={() => navigate('/search')} className="bg-primary-container text-white px-6 py-2 rounded-lg font-label-lg hover:bg-primary transition-colors">
+        <button onClick={() => navigate('/search')} className="bg-primary-container text-on-primary px-6 py-2 rounded-lg font-label-lg hover:bg-primary transition-colors">
           Back to Search
         </button>
       </div>
@@ -61,53 +80,10 @@ const SalonProfilePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background text-on-surface font-body-md antialiased pb-[80px] md:pb-0">
+    <div className="bg-background text-on-surface font-body-md antialiased">
       
-      {/* HEADER (Sticky for both viewports) */}
-      <header className="fixed top-0 left-0 right-0 z-50 glass-header h-20 border-b border-outline-variant/30">
-        <nav className="flex justify-between items-center px-margin-mobile md:px-margin-desktop w-full max-w-container-max mx-auto h-full">
-          <div className="flex items-center gap-12">
-            <button 
-              onClick={() => navigate('/search')} 
-              className="md:hidden w-10 h-10 flex items-center justify-start text-on-surface"
-              aria-label="Go Back"
-            >
-              <span className="material-symbols-outlined block">arrow_back_ios</span>
-            </button>
-            <a 
-              className="font-display-lg text-display-lg text-primary tracking-widest uppercase cursor-pointer"
-              onClick={() => navigate('/')}
-            >
-              AURA
-            </a>
-            <div className="hidden md:flex items-center gap-8 font-label-lg">
-              <button className="text-primary border-b-2 border-primary pb-1 transition-colors duration-300" onClick={() => navigate('/search')}>Salons</button>
-              <button className="text-secondary pb-1 hover:text-primary transition-colors duration-300" onClick={() => navigate(`/salon/${id}/services`)}>Services</button>
-              <button className="text-secondary pb-1 hover:text-primary transition-colors duration-300" onClick={() => navigate(`/salon/${id}/booking/datetime`)}>Specialists</button>
-              <button className="text-secondary pb-1 hover:text-primary transition-colors duration-300" onClick={() => navigate('/specials')}>Offers</button>
-            </div>
-          </div>
-          <div className="flex items-center gap-6">
-            {clientInfo?.email ? (
-              <button className="hidden md:block font-label-lg text-label-lg text-secondary hover:text-primary transition-colors" onClick={() => navigate('/owner/dashboard')}>Owner Dashboard</button>
-            ) : (
-              <button className="hidden md:block font-label-lg text-label-lg text-secondary hover:text-primary transition-colors" onClick={() => navigate('/login')}>Login</button>
-            )}
-            <button className="md:hidden w-10 h-10 flex items-center justify-end text-on-surface" aria-label="Share">
-              <span className="material-symbols-outlined block">share</span>
-            </button>
-            <button 
-              className="hidden md:block bg-primary-container text-on-primary px-8 py-3 rounded-full font-label-lg text-label-lg hover:opacity-90 transition-opacity"
-              onClick={handleBookClick}
-            >
-              Book Now
-            </button>
-          </div>
-        </nav>
-      </header>
-
       {/* MAIN VIEW */}
-      <main className="pt-20">
+      <main>
         
         {/* DESKTOP LAYOUT (md:above) */}
         <div className="hidden md:block">
@@ -133,31 +109,7 @@ const SalonProfilePage = () => {
             </div>
             
             {/* Bento Gallery */}
-            <div className="grid grid-cols-12 gap-gutter h-[600px] md:h-[700px]">
-              <div className="col-span-8 h-full rounded-xl overflow-hidden relative group">
-                <img 
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuA9IQM4A0tyNLLJQBLJKHYbekjL3jhR9kY6f3MR77M370Ii_YHzp-x-luJMPiAYL6Z5kXaoLYKx8QpN2ZTSb4DDQ72j63zbH2DZeECyXqlNhtVDwqnsu1mh2a2yw5bjAdD3kUgXVPwXCbTz98khejOha35DhGBUmdd4jsfBmDoNumYDzZfS1VUfhIPyRXsKNmqTQ5kBa9ePFAymajaxuB1MNZIe6uHT7wDWs4t2L-oLBheR8v__c4zz" 
-                  alt="Gallery 1"
-                />
-              </div>
-              <div className="col-span-4 flex flex-col gap-gutter h-full">
-                <div className="h-1/2 rounded-xl overflow-hidden relative group">
-                  <img 
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuCdTTZbadtsbEQBuySekR_agdCVvJsemKPfJvDSe-1Pq7_hz8JXPgpSA9ELKEnpTOMzzCJprUOC6il_wNXSkSqIN3o6VJq5ABXwhUFlSdmrzysn-RY9nVMc16ZlZ9QZl3gafuUVFQqv5XHa8oJSSMmkf5RulYB53MxXvPXoTaCilnuMXkN9456cjG1qX0LIZZyIAEywtzdVJxAOX-dbARdmsCHMojjPcbDVGGJ__zpHKqnjzD_OlZzH" 
-                    alt="Gallery 2"
-                  />
-                </div>
-                <div className="h-1/2 rounded-xl overflow-hidden relative group">
-                  <img 
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxw4e5VCLKhm4FRCt9CwiA5Y1kiVtLbd5Z7oFE-3bL-NSZoi8NRrDABWo1lO8Jps9omIly0nV1b66J7C36MeUeOJfAxmNzhCycK1MVKUt0Omp5C4m6ZX-s0lUDgDJVl21mxfrg9xRiixGRRXZPB2RCjtjcOEQa8Hh3-6QSxhhSuvwaypePjf82b_sPTYl1Xtzq5p7m6ApIO2rYUDp5wetcxMAIY02qfjvPHh_I5fEwhNpRkgDnhAxS" 
-                    alt="Gallery 3"
-                  />
-                </div>
-              </div>
-            </div>
+            <PhotoGallery photos={photos} defaultImages={defaultImages} />
           </section>
 
           {/* About Section */}
@@ -263,34 +215,8 @@ const SalonProfilePage = () => {
         <div className="md:hidden block">
           
           {/* Mobile Hero Slider */}
-          <section className="relative w-full overflow-hidden">
-            <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar gap-2 px-margin-mobile py-4">
-              <div className="flex-shrink-0 w-[85vw] h-80 rounded-xl overflow-hidden snap-center soft-glow">
-                <img 
-                  className="w-full h-full object-cover" 
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuAbp9yh0LrKy4I8mVn3Gu6ER5l2lRr7oAciJzJNhgUvjFjDqhhBrUwxU-xiOUjGjPLylweElHLqJ6qEj4KHQ_adc5ZnGQKu4rmHYQoZx6o9KHVaolvBg2jVlvEcj8zCqlzPcShac13jSOqixaG8OCaVX_FsY8sG__JLODY6uaJdKfAsz-FhxxYyFC-qS6T2GXIMSWLzfV--iciAqAQ48I-iVOgUFX1efWPltFAF36uXZyePvzdzWqSR" 
-                  alt="Gallery 1"
-                />
-              </div>
-              <div className="flex-shrink-0 w-[85vw] h-80 rounded-xl overflow-hidden snap-center soft-glow">
-                <img 
-                  className="w-full h-full object-cover" 
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYafUvwC0i9KywWzJHS3V8hC7uDsIFBEOCReJNfOULw0JUiGy9P2KtUTFoPVr01bOWGULhZuxUw2-rL9gDy7NJ7vpwNizFMiYrGx7506YcXX22QsyFbQPYbalxdWZV0u13CNEwlnkA-AKCRkbOs7HCxrbHSihps_gMolCFXhdrsILUFXiYTIL9aI1mQo_MG7mGJrJf8UjZT79iRbM7OWuUhJhUkCjtpKCiCD8RjlMb5tkiL3-ZvXRY" 
-                  alt="Gallery 2"
-                />
-              </div>
-              <div className="flex-shrink-0 w-[85vw] h-80 rounded-xl overflow-hidden snap-center soft-glow">
-                <img 
-                  className="w-full h-full object-cover" 
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZWY8Zv1TqAW_2uke17-T9Uab7pKPbFBSEoI9dFcnQ2pckCtLBvucASUggD3qLExJptdkJUdEmCLIEmiI9v1OwDexxOefqCTCobH4vtZIFWfvcactmF0qRlnloRwfTxZGGuYCPIhnMvXRmHXXppnr0mkVLb0OMJ_4n-_4HXT8fgMaqkV1jLMdq7ewrrSUwf7BLm1AyYtFOCIBPsgDUSpwS_ARrHEWAR29XPKk49c7VeDFz_Sr6b6yQ" 
-                  alt="Gallery 3"
-                />
-              </div>
-            </div>
-            <div className="absolute bottom-8 right-8 bg-on-primary/90 px-3 py-1 rounded-full text-label-md text-on-surface-variant flex items-center gap-1 shadow-sm">
-              <span className="material-symbols-outlined text-[16px] block">image</span>
-              1/3
-            </div>
+          <section className="relative w-full overflow-hidden pt-2">
+            <PhotoGallery photos={photos} defaultImages={defaultImages} />
           </section>
 
           {/* Mobile Identity */}
@@ -389,7 +315,7 @@ const SalonProfilePage = () => {
               <span className="text-headline-md font-headline-md text-on-surface">$0.00</span>
             </div>
             <button 
-              className="bg-primary-container text-on-primary-container px-8 h-14 rounded-lg font-label-lg flex items-center justify-center gap-2 soft-glow active:scale-95 transition-all"
+              className="bg-primary-container text-on-primary px-8 h-14 rounded-lg font-label-lg flex items-center justify-center gap-2 soft-glow active:scale-95 transition-all"
               onClick={handleBookClick}
             >
               Book Now
@@ -400,53 +326,6 @@ const SalonProfilePage = () => {
         </div>
 
       </main>
-
-      {/* FOOTER */}
-      <footer className="hidden md:block bg-surface-container-low border-t border-outline-variant/20 mt-12">
-        <div className="flex justify-between items-center px-margin-desktop py-stack-lg w-full max-w-container-max mx-auto">
-          <div className="flex flex-col items-start gap-4">
-            <span className="font-headline-md text-headline-md text-primary tracking-widest uppercase">AURA</span>
-            <p className="text-secondary font-body-sm max-w-xs">Connecting you with the world's most exceptional beauty and wellness destinations.</p>
-          </div>
-          <div className="flex gap-8">
-            <a className="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">About AURA</a>
-            <a className="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Privacy Policy</a>
-            <a className="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Terms of Service</a>
-            <a className="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Careers</a>
-            <a className="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Contact Us</a>
-          </div>
-          <div className="flex flex-col items-end gap-2 font-body-sm text-secondary">
-            <p>© 2024 AURA Wellness &amp; Beauty.</p>
-            <div className="flex gap-4">
-              <span className="material-symbols-outlined text-[20px] block cursor-pointer">share</span>
-              <span className="material-symbols-outlined text-[20px] block cursor-pointer">favorite</span>
-            </div>
-          </div>
-        </div>
-      </footer>
-
-      {/* Mobile Bottom Navigation (Visible below 768px only) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 w-full bg-surface-container-lowest border-t border-outline-variant/20 z-50 px-6 py-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        <ul className="flex justify-between items-center">
-          <li className="flex-1 flex flex-col items-center justify-center text-secondary hover:text-primary transition-colors cursor-pointer" onClick={() => navigate('/search')}>
-            <span className="material-symbols-outlined text-[24px] mb-1" style={{ fontVariationSettings: "'FILL' 0" }}>search</span>
-            <span className="font-label-md text-[10px]">Explore</span>
-          </li>
-          <li className="flex-1 flex flex-col items-center justify-center text-secondary hover:text-primary transition-colors cursor-pointer">
-            <span className="material-symbols-outlined text-[24px] mb-1" style={{ fontVariationSettings: "'FILL' 0" }}>local_offer</span>
-            <span className="font-label-md text-[10px]">Specials</span>
-          </li>
-          <li className="flex-1 flex flex-col items-center justify-center text-secondary hover:text-primary transition-colors cursor-pointer" onClick={() => navigate('/search')}>
-            <span className="material-symbols-outlined text-[24px] mb-1" style={{ fontVariationSettings: "'FILL' 0" }}>calendar_today</span>
-            <span className="font-label-md text-[10px]">Bookings</span>
-          </li>
-          <li className="flex-1 flex flex-col items-center justify-center text-secondary hover:text-primary transition-colors cursor-pointer" onClick={() => navigate('/login')}>
-            <span className="material-symbols-outlined text-[24px] mb-1" style={{ fontVariationSettings: "'FILL' 0" }}>account_circle</span>
-            <span className="font-label-md text-[10px]">Profile</span>
-          </li>
-        </ul>
-      </nav>
-
     </div>
   );
 };

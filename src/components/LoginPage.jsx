@@ -67,18 +67,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-on-surface font-body-md antialiased flex flex-col justify-between py-12 px-margin-mobile">
-
-      {/* Header / Brand */}
-      <div className="text-center">
-        <span
-          onClick={() => navigate('/')}
-          className="font-display-lg text-display-lg text-primary tracking-widest uppercase cursor-pointer"
-        >
-          AURA
-        </span>
-      </div>
-
+    <div className="bg-background text-on-surface font-body-md antialiased py-12 px-margin-mobile">
       {/* Login or Forgot Password Card */}
       <main className="w-full max-w-md mx-auto my-8 bg-white rounded-2xl border border-outline-variant/30 soft-glow overflow-hidden shadow-lg p-6 md:p-8 space-y-6">
 
@@ -224,11 +213,6 @@ const LoginPage = () => {
           </>
         )}
       </main>
-
-      {/* Footer */}
-      <div className="text-center font-body-sm text-secondary">
-        <p>© 2025 AURA Wellness & Beauty. All rights reserved.</p>
-      </div>
     </div>
   );
 };

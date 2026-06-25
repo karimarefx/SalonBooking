@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { BookingProvider } from './context/BookingContext';
 import { AuthProvider } from './context/AuthContext';
+import Layout from './components/layout/Layout';
 import OwnerRoute from './components/OwnerRoute';
 import LandingPage from './components/LandingPage';
 import SearchResultsPage from './components/SearchResultsPage';
@@ -15,7 +16,6 @@ import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignupPage';
 import ListYourSalonPage from './components/ListYourSalonPage';
 import OwnerDashboard from './components/OwnerDashboard';
-import SpecialsPage from './components/SpecialsPage';
 import AboutPage from './components/AboutPage';
 import NotFoundPage from './components/NotFoundPage';
 
@@ -26,32 +26,33 @@ function App() {
         <Router>
           <Routes>
             {/* Public customer routes */}
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/search" element={<SearchResultsPage />} />
-            <Route path="/salon/:id" element={<SalonProfilePage />} />
-            <Route path="/salon/:id/services" element={<ServiceSelectionPage />} />
-            <Route path="/salon/:id/booking/datetime" element={<DateTimePage />} />
-            <Route path="/salon/:id/booking/confirm" element={<ConfirmBookingPage />} />
-            <Route path="/booking/success" element={<BookingSuccessPage />} />
-            <Route path="/account/bookings" element={<MyBookingsPage />} />
-            <Route path="/specials" element={<SpecialsPage />} />
-            <Route path="/about" element={<AboutPage />} />
+            <Route path="/" element={<Layout footerVariant="full"><LandingPage /></Layout>} />
+            <Route path="/search" element={<Layout footerVariant="full"><SearchResultsPage /></Layout>} />
+            <Route path="/salon/:id" element={<Layout footerVariant="full"><SalonProfilePage /></Layout>} />
+            <Route path="/salon/:id/services" element={<Layout footerVariant="simple"><ServiceSelectionPage /></Layout>} />
+            <Route path="/salon/:id/booking/datetime" element={<Layout footerVariant="simple"><DateTimePage /></Layout>} />
+            <Route path="/salon/:id/booking/confirm" element={<Layout footerVariant="simple"><ConfirmBookingPage /></Layout>} />
+            <Route path="/booking/success" element={<Layout footerVariant="simple"><BookingSuccessPage /></Layout>} />
+            <Route path="/account/bookings" element={<Layout footerVariant="full"><MyBookingsPage /></Layout>} />
+            <Route path="/about" element={<Layout footerVariant="full"><AboutPage /></Layout>} />
 
             {/* Owner / auth routes */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
-            <Route path="/owner/portal" element={<ListYourSalonPage />} />
+            <Route path="/login" element={<Layout footerVariant="simple"><LoginPage /></Layout>} />
+            <Route path="/signup" element={<Layout footerVariant="simple"><SignupPage /></Layout>} />
+            <Route path="/owner/portal" element={<Layout footerVariant="simple"><ListYourSalonPage /></Layout>} />
             <Route
               path="/owner/dashboard"
               element={
                 <OwnerRoute>
-                  <OwnerDashboard />
+                  <Layout footerVariant="simple">
+                    <OwnerDashboard />
+                  </Layout>
                 </OwnerRoute>
               }
             />
 
             {/* Catch-all */}
-            <Route path="*" element={<NotFoundPage />} />
+            <Route path="*" element={<Layout footerVariant="simple"><NotFoundPage /></Layout>} />
           </Routes>
         </Router>
       </BookingProvider>
@@ -60,3 +61,4 @@ function App() {
 }
 
 export default App;
+

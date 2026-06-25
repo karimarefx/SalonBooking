@@ -51,18 +51,25 @@ const ConfirmBookingPage = () => {
 
   const handleConfirmBooking = async (e) => {
     if (e) e.preventDefault();
-    if (!clientInfo.name || !clientInfo.phone) {
-      alert('Please enter your Name and Phone Number to confirm booking.');
+    if (!clientInfo.name || !clientInfo.phone || !clientInfo.email) {
+      alert('Please enter your Name, Email, and Phone Number to confirm your booking.');
+      return;
+    }
+    // Basic email format check
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientInfo.email)) {
+      alert('Please enter a valid email address. You will need it to view or cancel your booking later.');
       return;
     }
 
     setIsProcessing(true);
 
     try {
-      // Format selected date into YYYY-MM-DD
-      let bookingDateDb = new Date().toISOString().split('T')[0];
+      // The new DateTimePage stores date as YYYY-MM-DD — use directly.
+      // Fallback handles old format "Mon, Dec 6" just in case.
+      let bookingDateDb = selectedDate || new Date().toISOString().split('T')[0];
       try {
-        if (selectedDate) {
+        if (selectedDate && !/^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) {
+          // Old format: "Friday, Dec 6" or "Mon, Dec 6"
           const cleanDateStr = selectedDate.includes(',') ? selectedDate.split(',')[1].trim() : selectedDate.trim();
           const parts = cleanDateStr.split(' ');
           const months = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
@@ -91,7 +98,7 @@ const ConfirmBookingPage = () => {
         booking_date: bookingDateDb,
         booking_time: selectedTime || '12:00 PM',
         client_name: clientInfo.name,
-        client_email: clientInfo.email || 'guest@example.com',
+        client_email: clientInfo.email,
         client_phone: clientInfo.phone,
         notes: clientInfo.notes || '',
         total_price: totalAmount,
@@ -124,40 +131,6 @@ const ConfirmBookingPage = () => {
 
   return (
     <div className="min-h-screen bg-background text-on-surface font-body-md antialiased pb-32">
-      
-      {/* DESKTOP HEADER */}
-      <header className="hidden md:block bg-surface w-full z-50 border-b border-outline-variant/30 sticky top-0">
-        <nav className="flex justify-between items-center px-margin-desktop w-full max-w-container-max mx-auto h-20">
-          <span 
-            onClick={() => navigate('/')} 
-            className="font-display-lg text-display-lg text-primary tracking-widest uppercase cursor-pointer"
-          >
-            AURA
-          </span>
-          <nav className="hidden md:flex gap-gutter items-center">
-            <span className="font-label-lg text-label-lg text-secondary cursor-pointer" onClick={() => navigate('/search')}>Salons</span>
-            <span className="font-label-lg text-label-lg text-secondary cursor-pointer" onClick={() => navigate(`/salon/${id}/services`)}>Services</span>
-            <span className="font-label-lg text-label-lg text-secondary cursor-pointer" onClick={handleBack}>Specialists</span>
-            <span className="font-label-lg text-label-lg text-primary border-b-2 border-primary pb-1 cursor-pointer">Confirm</span>
-          </nav>
-          <div className="flex items-center space-x-4">
-            <button className="font-label-lg text-label-lg text-secondary px-4 py-2 hover:text-primary transition-colors">Login</button>
-            <button className="bg-primary text-on-primary px-6 py-3 rounded-lg font-label-lg text-label-lg uppercase tracking-wider">Book Now</button>
-          </div>
-        </nav>
-      </header>
-
-      {/* MOBILE HEADER */}
-      <header className="md:hidden sticky top-0 z-50 bg-surface h-16 flex items-center px-margin-mobile border-b border-outline-variant/10 shadow-sm">
-        <button onClick={handleBack} className="p-2 -ml-2 text-secondary">
-          <span className="material-symbols-outlined font-light">arrow_back</span>
-        </button>
-        <h1 className="ml-2 font-headline-md text-headline-md text-primary tracking-tight">AURA</h1>
-        <div className="ml-auto">
-          <span className="font-label-lg text-label-lg text-secondary">Step 3 of 3</span>
-        </div>
-      </header>
-
       {/* MAIN CONTAINER */}
       <main className="w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-8 md:py-12">
         
@@ -197,16 +170,16 @@ const ConfirmBookingPage = () => {
               <p className="font-body-lg text-body-lg text-on-surface-variant">Please provide your contact details to secure your appointment. We'll send a confirmation and a reminder 24 hours before your visit.</p>
             </section>
 
-            <form onSubmit={handleConfirmBooking} className="bg-white p-6 md:p-8 rounded-xl soft-glow border border-surface-variant/30 space-y-6 shadow-sm">
+            <form onSubmit={handleConfirmBooking} className="bg-surface-container-lowest p-6 md:p-8 rounded-xl soft-glow border border-outline-variant/30 space-y-6 shadow-sm">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
+
                 {/* Full Name */}
                 <div className="space-y-2">
                   <label className="font-label-lg text-label-lg text-on-surface-variant" htmlFor="full-name">Full Name</label>
-                  <input 
-                    className="w-full bg-surface-container-low border-0 border-b border-outline-variant focus:border-primary focus:ring-0 transition-colors py-3 px-0 font-body-md text-on-surface outline-none" 
-                    id="full-name" 
-                    placeholder="E.g. Isabella Rossi" 
+                  <input
+                    className="w-full bg-surface-container-low border-0 border-b border-outline-variant focus:border-primary focus:ring-0 transition-colors py-3 px-0 font-body-md text-on-surface outline-none"
+                    id="full-name"
+                    placeholder="E.g. Isabella Rossi"
                     type="text"
                     required
                     value={clientInfo.name}
@@ -217,10 +190,10 @@ const ConfirmBookingPage = () => {
                 {/* Phone Number */}
                 <div className="space-y-2">
                   <label className="font-label-lg text-label-lg text-on-surface-variant" htmlFor="phone">Phone Number</label>
-                  <input 
-                    className="w-full bg-surface-container-low border-0 border-b border-outline-variant focus:border-primary focus:ring-0 transition-colors py-3 px-0 font-body-md text-on-surface outline-none" 
-                    id="phone" 
-                    placeholder="+1 (555) 000-0000" 
+                  <input
+                    className="w-full bg-surface-container-low border-0 border-b border-outline-variant focus:border-primary focus:ring-0 transition-colors py-3 px-0 font-body-md text-on-surface outline-none"
+                    id="phone"
+                    placeholder="+1 (555) 000-0000"
                     type="tel"
                     required
                     value={clientInfo.phone}
@@ -228,6 +201,26 @@ const ConfirmBookingPage = () => {
                   />
                 </div>
 
+              </div>
+
+              {/* Email Address — full width, required for booking lookup */}
+              <div className="space-y-2">
+                <label className="font-label-lg text-label-lg text-on-surface-variant" htmlFor="email">
+                  Email Address <span className="text-primary font-semibold">*</span>
+                </label>
+                <input
+                  className="w-full bg-surface-container-low border-0 border-b border-outline-variant focus:border-primary focus:ring-0 transition-colors py-3 px-0 font-body-md text-on-surface outline-none"
+                  id="email"
+                  placeholder="your@email.com"
+                  type="email"
+                  required
+                  value={clientInfo.email || ''}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                />
+                <p className="text-xs text-on-surface-variant flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm text-primary">info</span>
+                  You'll use this email to view or cancel your booking later — no account needed.
+                </p>
               </div>
 
               {/* Special Requests */}
@@ -257,7 +250,7 @@ const ConfirmBookingPage = () => {
 
           {/* RIGHT COLUMN: Sticky Booking Summary Card */}
           <aside className="lg:col-span-5 mt-8 lg:mt-0">
-            <div className="sticky top-24 bg-white rounded-xl soft-glow overflow-hidden border border-surface-variant/30 shadow-sm">
+            <div className="sticky top-24 bg-surface-container-lowest rounded-xl soft-glow overflow-hidden border border-outline-variant/30 shadow-sm">
               
               {/* Image Header with Title */}
               <div className="h-48 w-full relative">

@@ -164,45 +164,6 @@ const ServiceSelectionPage = () => {
   return (
     <div className="min-h-screen bg-background text-on-surface font-body-md antialiased pb-32">
       
-      {/* DESKTOP HEADER */}
-      <header className="hidden md:block bg-surface dark:bg-on-surface w-full top-0 sticky z-50 border-b border-outline-variant/30">
-        <nav className="flex justify-between items-center px-margin-desktop w-full max-w-container-max mx-auto h-20">
-          <div className="flex items-center gap-12">
-            <span 
-              onClick={() => navigate('/')} 
-              className="font-display-lg text-[24px] md:text-display-lg text-primary tracking-widest uppercase cursor-pointer"
-            >
-              AURA
-            </span>
-            <div className="flex items-center space-x-8 font-label-lg">
-              <span className="text-primary border-b-2 border-primary pb-1 cursor-pointer" onClick={() => navigate('/search')}>Salons</span>
-              <span className="text-secondary pb-1 hover:text-primary transition-colors cursor-pointer">Services</span>
-              <span className="text-secondary pb-1 hover:text-primary transition-colors cursor-pointer">Specialists</span>
-              <span className="text-secondary pb-1 hover:text-primary transition-colors cursor-pointer">Offers</span>
-            </div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <button className="font-label-lg text-label-lg text-secondary px-4 py-2 hover:text-primary transition-colors">Login</button>
-            <button className="bg-primary text-on-primary font-label-lg text-label-lg px-6 py-3 rounded-lg hover:bg-primary-container transition-all active:opacity-80">Book Now</button>
-          </div>
-        </nav>
-      </header>
-
-      {/* MOBILE HEADER */}
-      <header className="md:hidden sticky top-0 z-50 bg-surface h-20 px-margin-mobile flex items-center justify-between border-b border-outline-variant/10 shadow-sm">
-        <button 
-          aria-label="Go back" 
-          className="w-10 h-10 flex items-center justify-start text-secondary"
-          onClick={() => navigate(`/salon/${id}`)}
-        >
-          <span className="material-symbols-outlined font-light">arrow_back_ios</span>
-        </button>
-        <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-primary tracking-tight">Select Services</h1>
-        <button aria-label="Help" className="w-10 h-10 flex items-center justify-end text-secondary">
-          <span className="material-symbols-outlined">info</span>
-        </button>
-      </header>
-
       {/* MAIN CONTAINER */}
       <main className="w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-8 md:py-12">
         

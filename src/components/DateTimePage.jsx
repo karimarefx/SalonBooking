@@ -250,34 +250,7 @@ const DateTimePage = () => {
 
   return (
     <div className="min-h-screen bg-background text-on-surface font-body-md antialiased pb-32">
-
-      {/* DESKTOP HEADER */}
-      <header className="hidden md:block bg-surface w-full top-0 sticky z-50 border-b border-outline-variant/30">
-        <nav className="flex justify-between items-center px-margin-desktop w-full max-w-container-max mx-auto h-20">
-          <span onClick={() => navigate('/')} className="font-display-lg text-display-lg text-primary tracking-widest uppercase cursor-pointer">AURA</span>
-          <nav className="hidden md:flex gap-gutter items-center">
-            <span className="font-label-lg text-label-lg text-secondary cursor-pointer" onClick={() => navigate('/search')}>Salons</span>
-            <span className="font-label-lg text-label-lg text-secondary cursor-pointer" onClick={handleBack}>Services</span>
-            <span className="font-label-lg text-label-lg text-primary border-b-2 border-primary pb-1 cursor-pointer">Specialist & Time</span>
-          </nav>
-          <button onClick={() => navigate('/account/bookings')} className="font-label-lg text-label-lg text-secondary px-4 py-2 hover:text-primary transition-colors">My Bookings</button>
-        </nav>
-      </header>
-
-      {/* MOBILE HEADER */}
-      <header className="md:hidden sticky top-0 z-50 bg-surface h-16 flex items-center px-margin-mobile border-b border-outline-variant/10 shadow-sm">
-        <button onClick={handleBack} className="w-10 h-10 flex items-center justify-start text-secondary">
-          <span className="material-symbols-outlined font-light">arrow_back_ios</span>
-        </button>
-        <div className="flex-grow text-center">
-          <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-primary tracking-tight">AURA</h1>
-        </div>
-        <div className="w-10" />
-      </header>
-
-      {/* MAIN CONTAINER */}
       <main className="w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-8 md:py-12">
-
         {/* BREADCRUMB */}
         <div className="hidden md:flex items-center gap-2 text-body-sm text-on-surface-variant mb-8">
           <span className="cursor-pointer hover:text-primary transition-colors" onClick={() => navigate('/')}>Home</span>

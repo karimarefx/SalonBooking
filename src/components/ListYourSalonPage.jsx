@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { geocodeAddress } from '../utils/locationUtils';
 
 const ListYourSalonPage = () => {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ const ListYourSalonPage = () => {
   const [salonId, setSalonId] = useState('');
   const [salonName, setSalonName] = useState('');
   const [location, setLocation] = useState('');
+  const [streetAddress, setStreetAddress] = useState('');
   const [description, setDescription] = useState('');
   const [about, setAbout] = useState('');
   const [tagsString, setTagsString] = useState('Hair, Nails, Skincare');
@@ -44,6 +46,19 @@ const ListYourSalonPage = () => {
     setIsSubmitting(true);
 
     try {
+      // Geocode the address
+      let latitude = null;
+      let longitude = null;
+      try {
+        const coords = await geocodeAddress(streetAddress || location);
+        if (coords) {
+          latitude = coords.lat;
+          longitude = coords.lng;
+        }
+      } catch (geoErr) {
+        console.error('Failed to geocode address:', geoErr);
+      }
+
       // 1. Create owner user account
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
@@ -77,7 +92,9 @@ const ListYourSalonPage = () => {
         description: description,
         image_url: fallbackImg,
         tags: tags,
-        owner_email: email
+        owner_email: email,
+        latitude: latitude,
+        longitude: longitude
       };
 
       // 3. Insert into public.salons
@@ -104,24 +121,7 @@ const ListYourSalonPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-on-surface font-body-md antialiased pb-24">
-      {/* Header */}
-      <header className="bg-surface sticky top-0 z-50 w-full shadow-sm border-b border-outline-variant/30">
-        <div className="max-w-[1200px] mx-auto px-margin-mobile md:px-margin-desktop h-20 flex items-center justify-between">
-          <span 
-            onClick={() => navigate('/')} 
-            className="font-display-lg text-[24px] md:text-display-lg text-primary tracking-widest uppercase cursor-pointer"
-          >
-            AURA
-          </span>
-          <button 
-            onClick={() => navigate('/login')} 
-            className="text-secondary hover:text-primary font-semibold font-label-lg"
-          >
-            Sign In
-          </button>
-        </div>
-      </header>
+    <div className="bg-background text-on-surface font-body-md antialiased">
 
       {/* Main portal grid */}
       <main className="max-w-[1200px] mx-auto px-margin-mobile md:px-margin-desktop py-12 md:py-16 grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
@@ -265,7 +265,7 @@ const ListYourSalonPage = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="block font-label-lg text-label-lg text-on-surface-variant" htmlFor="location">Address / Neighborhood</label>
+                <label className="block font-label-lg text-label-lg text-on-surface-variant" htmlFor="location">Neighborhood / Area (for display)</label>
                 <input 
                   className="w-full bg-surface-container-low border-0 border-b border-outline-variant focus:border-primary focus:ring-0 transition-colors py-3 px-0 font-body-md text-on-surface outline-none" 
                   id="location" 
@@ -274,6 +274,19 @@ const ListYourSalonPage = () => {
                   required
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block font-label-lg text-label-lg text-on-surface-variant" htmlFor="streetAddress">Full Street Address (for distance/geocoding)</label>
+                <input 
+                  className="w-full bg-surface-container-low border-0 border-b border-outline-variant focus:border-primary focus:ring-0 transition-colors py-3 px-0 font-body-md text-on-surface outline-none" 
+                  id="streetAddress" 
+                  placeholder="123 Fifth Ave, New York, NY 10010" 
+                  type="text"
+                  required
+                  value={streetAddress}
+                  onChange={(e) => setStreetAddress(e.target.value)}
                 />
               </div>
 
@@ -360,12 +373,6 @@ const ListYourSalonPage = () => {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-secondary-container dark:bg-surface-container full-width border-t border-outline-variant/20">
-        <div className="max-w-[1200px] mx-auto px-margin-desktop py-8 text-center text-body-sm text-secondary">
-          <p>© 2024 AURA Wellness & Beauty. All rights reserved.</p>
-        </div>
-      </footer>
     </div>
   );
 };

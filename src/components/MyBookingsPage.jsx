@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
 const MyBookingsPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -12,9 +13,8 @@ const MyBookingsPage = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [cancellingId, setCancellingId] = useState(null);
 
-  const handleLookup = async (e) => {
-    e.preventDefault();
-    if (!email.trim()) {
+  const fetchBookings = async (lookupEmail) => {
+    if (!lookupEmail.trim()) {
       setErrorMsg('Please enter your email address.');
       return;
     }
@@ -24,7 +24,7 @@ const MyBookingsPage = () => {
       const { data, error } = await supabase
         .from('bookings')
         .select('*, salons(name, location), specialists(name)')
-        .eq('client_email', email.trim().toLowerCase())
+        .eq('client_email', lookupEmail.trim().toLowerCase())
         .order('booking_date', { ascending: false });
 
       if (error) throw error;
@@ -37,6 +37,19 @@ const MyBookingsPage = () => {
       setLoading(false);
     }
   };
+
+  const handleLookup = async (e) => {
+    if (e) e.preventDefault();
+    await fetchBookings(email);
+  };
+
+  useEffect(() => {
+    const emailParam = searchParams.get('email');
+    if (emailParam) {
+      setEmail(emailParam);
+      fetchBookings(emailParam);
+    }
+  }, [searchParams]);
 
   const handleCancel = async (id) => {
     if (!confirm('Are you sure you want to cancel this appointment?')) return;
@@ -157,28 +170,7 @@ const MyBookingsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-on-surface font-body-md antialiased">
-
-      {/* Header */}
-      <header className="bg-surface sticky top-0 z-50 border-b border-outline-variant/30 shadow-sm">
-        <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop h-20 flex items-center justify-between">
-          <span
-            onClick={() => navigate('/')}
-            className="font-display-lg text-display-lg text-primary tracking-widest uppercase cursor-pointer"
-          >
-            AURA
-          </span>
-          <nav className="flex items-center gap-6">
-            <button
-              onClick={() => navigate('/search')}
-              className="font-label-lg text-label-lg text-secondary hover:text-primary transition-colors"
-            >
-              Browse Salons
-            </button>
-          </nav>
-        </div>
-      </header>
-
+    <div className="bg-background text-on-surface font-body-md antialiased">
       <main className="max-w-3xl mx-auto px-margin-mobile md:px-margin-desktop py-12">
 
         {/* Page Title */}
@@ -268,11 +260,6 @@ const MyBookingsPage = () => {
           </>
         )}
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-outline-variant/20 py-8 text-center text-body-sm text-secondary mt-auto">
-        <p>© 2025 AURA Wellness & Beauty. All rights reserved.</p>
-      </footer>
     </div>
   );
 };
