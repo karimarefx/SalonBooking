@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useBooking } from '../context/BookingContext';
 import { supabase } from '../supabaseClient';
+import { formatPrice } from '../utils/currency';
 
 // ---------- Helpers ----------
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -99,79 +100,163 @@ const DateTimePage = () => {
     return sum + (match ? parseInt(match[0]) : 60);
   }, 0) || 60;
 
+  // Helper to format minutes to HH:MM (24-hour)
+  const toHHMM = (mins) => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  };
+
   // Fetch existing bookings and compute available slots
   const loadAvailability = useCallback(async () => {
     if (!selectedDate || !selectedSpecialist) return;
 
     setAvailabilityLoading(true);
     try {
-      // Determine schedule for the selected specialist
       const dateObj = new Date(selectedDate + 'T00:00:00');
       const dayKey = DAY_KEYS[dateObj.getDay()];
-
-      let schedule = null;
-      if (selectedSpecialist.id && selectedSpecialist.schedule) {
-        schedule = selectedSpecialist.schedule;
-      } else if (selectedSpecialist.id) {
-        // Fetch fresh from DB
-        const { data } = await supabase
-          .from('specialists')
-          .select('schedule')
-          .eq('id', selectedSpecialist.id)
-          .single();
-        schedule = data?.schedule;
-      }
-
-      // Default open schedule if none set
       const defaultOpen = { enabled: true, start: '09:00', end: '18:00' };
-      const daySchedule = schedule ? (schedule[dayKey] || defaultOpen) : defaultOpen;
-
-      if (!daySchedule.enabled) {
-        // Day off — no slots
-        setSlots([]);
-        setSelectedTime('');
-        setAvailabilityLoading(false);
-        return;
-      }
-
-      // Fetch existing confirmed bookings for this specialist on this date
-      let query = supabase
-        .from('bookings')
-        .select('booking_time, slot_duration_minutes, selected_services')
-        .eq('salon_id', id)
-        .eq('booking_date', selectedDate)
-        .not('status', 'eq', 'Cancelled');
 
       if (selectedSpecialist.id) {
-        query = query.eq('specialist_id', selectedSpecialist.id);
-      }
-
-      const { data: existingBookings } = await query;
-
-      // Build booked slot objects { start (mins), duration (mins) }
-      const bookedSlots = (existingBookings || []).map(b => {
-        const [timeStr, period] = b.booking_time ? b.booking_time.split(' ') : ['12:00', 'PM'];
-        let [h, m] = (timeStr || '12:00').split(':').map(Number);
-        if (period === 'PM' && h !== 12) h += 12;
-        if (period === 'AM' && h === 12) h = 0;
-        const startMins = h * 60 + (m || 0);
-        // Duration: from stored column or compute from selected_services
-        let duration = b.slot_duration_minutes || 60;
-        if (!b.slot_duration_minutes && b.selected_services) {
-          duration = (b.selected_services || []).reduce((sum, svc) => {
-            const match = typeof svc.duration === 'string' ? svc.duration.match(/\d+/) : null;
-            return sum + (match ? parseInt(match[0]) : 60);
-          }, 0) || 60;
+        // --- Specific Specialist Logic ---
+        let schedule = selectedSpecialist.schedule;
+        if (!schedule) {
+          // Fetch fresh from DB if missing
+          const { data } = await supabase
+            .from('specialists')
+            .select('schedule')
+            .eq('id', selectedSpecialist.id)
+            .single();
+          schedule = data?.schedule;
         }
-        return { start: startMins, duration };
-      });
 
-      const generated = generateSlots(daySchedule.start, daySchedule.end, totalDurationMins, bookedSlots);
-      setSlots(generated);
+        const daySchedule = schedule ? (schedule[dayKey] || defaultOpen) : defaultOpen;
+
+        if (!daySchedule.enabled) {
+          setSlots([]);
+          setSelectedTime('');
+          setAvailabilityLoading(false);
+          return;
+        }
+
+        // Fetch bookings for this specialist
+        const { data: existingBookings } = await supabase
+          .from('bookings')
+          .select('booking_time, slot_duration_minutes, selected_services')
+          .eq('salon_id', id)
+          .eq('booking_date', selectedDate)
+          .eq('specialist_id', selectedSpecialist.id)
+          .not('status', 'eq', 'Cancelled');
+
+        const bookedSlots = (existingBookings || []).map(b => {
+          const [timeStr, period] = b.booking_time ? b.booking_time.split(' ') : ['12:00', 'PM'];
+          let [h, m] = (timeStr || '12:00').split(':').map(Number);
+          if (period === 'PM' && h !== 12) h += 12;
+          if (period === 'AM' && h === 12) h = 0;
+          const startMins = h * 60 + (m || 0);
+          let duration = b.slot_duration_minutes || 60;
+          if (!b.slot_duration_minutes && b.selected_services) {
+            duration = (b.selected_services || []).reduce((sum, svc) => {
+              const match = typeof svc.duration === 'string' ? svc.duration.match(/\d+/) : null;
+              return sum + (match ? parseInt(match[0]) : 60);
+            }, 0) || 60;
+          }
+          return { start: startMins, duration };
+        });
+
+        const generated = generateSlots(daySchedule.start, daySchedule.end, totalDurationMins, bookedSlots);
+        setSlots(generated);
+      } else {
+        // --- "Any Specialist" Logic ---
+        // 1. Get all specialists who are working today
+        const enabledSpecs = specialists.filter(sp => {
+          const spSchedule = sp.schedule || {};
+          const daySchedule = spSchedule[dayKey] || defaultOpen;
+          return daySchedule.enabled;
+        });
+
+        if (enabledSpecs.length === 0) {
+          setSlots([]);
+          setSelectedTime('');
+          setAvailabilityLoading(false);
+          return;
+        }
+
+        // 2. Fetch all bookings for this salon on this day
+        const { data: allBookings } = await supabase
+          .from('bookings')
+          .select('specialist_id, booking_time, slot_duration_minutes, selected_services')
+          .eq('salon_id', id)
+          .eq('booking_date', selectedDate)
+          .not('status', 'eq', 'Cancelled');
+
+        // Group bookings by specialist
+        const bookingsBySp = {};
+        allBookings?.forEach(b => {
+          if (!b.specialist_id) return; // skip unassigned
+          if (!bookingsBySp[b.specialist_id]) {
+            bookingsBySp[b.specialist_id] = [];
+          }
+          const [timeStr, period] = b.booking_time ? b.booking_time.split(' ') : ['12:00', 'PM'];
+          let [h, m] = (timeStr || '12:00').split(':').map(Number);
+          if (period === 'PM' && h !== 12) h += 12;
+          if (period === 'AM' && h === 12) h = 0;
+          const startMins = h * 60 + (m || 0);
+          let duration = b.slot_duration_minutes || 60;
+          if (!b.slot_duration_minutes && b.selected_services) {
+            duration = (b.selected_services || []).reduce((sum, svc) => {
+              const match = typeof svc.duration === 'string' ? svc.duration.match(/\d+/) : null;
+              return sum + (match ? parseInt(match[0]) : 60);
+            }, 0) || 60;
+          }
+          bookingsBySp[b.specialist_id].push({ start: startMins, duration });
+        });
+
+        // 3. Find the collective working hours range (min start, max end)
+        let minStart = 1440;
+        let maxEnd = 0;
+        enabledSpecs.forEach(sp => {
+          const spSchedule = sp.schedule || {};
+          const daySchedule = spSchedule[dayKey] || defaultOpen;
+          const startMins = toMinutes(daySchedule.start);
+          const endMins = toMinutes(daySchedule.end);
+          if (startMins < minStart) minStart = startMins;
+          if (endMins > maxEnd) maxEnd = endMins;
+        });
+
+        // 4. Generate slots in that range, and check if *at least one* specialist is free
+        const generated = [];
+        for (let t = minStart; t + totalDurationMins <= maxEnd; t += SLOT_INTERVAL) {
+          const timeLabel = fromMinutes(t);
+          
+          // Check if any specialist is available for this slot
+          const hasAvailableSpecialist = enabledSpecs.some(sp => {
+            const spSchedule = sp.schedule || {};
+            const daySchedule = spSchedule[dayKey] || defaultOpen;
+            const spStart = toMinutes(daySchedule.start);
+            const spEnd = toMinutes(daySchedule.end);
+            
+            // Out of working hours for this specialist?
+            if (t < spStart || t + totalDurationMins > spEnd) return false;
+
+            // Overlaps with any booking for this specialist?
+            const spBookings = bookingsBySp[sp.id] || [];
+            const isOverlapping = spBookings.some(b => {
+              return !(t + totalDurationMins <= b.start || t >= b.start + b.duration);
+            });
+
+            return !isOverlapping;
+          });
+
+          generated.push({ time: timeLabel, raw: t, blocked: !hasAvailableSpecialist });
+        }
+
+        setSlots(generated);
+      }
 
       // Clear selected time if it's now blocked
       if (selectedTime) {
-        const stillAvail = generated.find(s => s.time === selectedTime && !s.blocked);
+        const stillAvail = slots.find(s => s.time === selectedTime && !s.blocked);
         if (!stillAvail) setSelectedTime('');
       }
     } catch (err) {
@@ -179,7 +264,7 @@ const DateTimePage = () => {
     } finally {
       setAvailabilityLoading(false);
     }
-  }, [selectedDate, selectedSpecialist?.id, totalDurationMins, id]);
+  }, [selectedDate, selectedSpecialist?.id, totalDurationMins, id, specialists]);
 
   useEffect(() => {
     loadAvailability();
@@ -193,9 +278,18 @@ const DateTimePage = () => {
   today.setHours(0, 0, 0, 0);
 
   const isSpecialistAvailableOnDate = (dateObj) => {
-    if (!selectedSpecialist?.schedule) return true;
     const dayKey = DAY_KEYS[dateObj.getDay()];
-    return selectedSpecialist.schedule[dayKey]?.enabled !== false;
+    if (selectedSpecialist?.id) {
+      return selectedSpecialist.schedule?.[dayKey]?.enabled !== false;
+    }
+    // Any Specialist: return true if at least one specialist is working on this day
+    if (specialists.length === 0) return true;
+    const defaultOpen = { enabled: true, start: '09:00', end: '18:00' };
+    return specialists.some(sp => {
+      const spSchedule = sp.schedule || {};
+      const daySchedule = spSchedule[dayKey] || defaultOpen;
+      return daySchedule.enabled;
+    });
   };
 
   const calendarYear = calendarDate.getFullYear();
@@ -475,7 +569,7 @@ const DateTimePage = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-label-lg text-on-surface font-semibold truncate">{svc.name}</p>
-                        <p className="font-body-sm text-body-sm text-on-surface-variant">{svc.duration} • ${parseFloat(svc.price).toFixed(2)}</p>
+                        <p className="font-body-sm text-body-sm text-on-surface-variant">{svc.duration} • {formatPrice(svc.price)}</p>
                       </div>
                     </div>
                   ))}
@@ -511,15 +605,15 @@ const DateTimePage = () => {
                 <div className="pt-4 border-t border-outline-variant/20 space-y-2">
                   <div className="flex justify-between font-body-sm text-on-surface-variant">
                     <span>Service Fee</span>
-                    <span>${totalServicePrice.toFixed(2)}</span>
+                    <span>{formatPrice(totalServicePrice)}</span>
                   </div>
                   <div className="flex justify-between font-body-sm text-on-surface-variant">
                     <span>Taxes (8%)</span>
-                    <span>${tax.toFixed(2)}</span>
+                    <span>{formatPrice(tax)}</span>
                   </div>
                   <div className="flex justify-between font-label-lg text-lg pt-2 text-on-surface border-t border-outline-variant/20 font-semibold">
                     <span>Total Amount</span>
-                    <span>${totalAmount.toFixed(2)}</span>
+                    <span>{formatPrice(totalAmount)}</span>
                   </div>
                 </div>
 
@@ -553,7 +647,7 @@ const DateTimePage = () => {
               </p>
             </div>
             <div className="text-right">
-              <p className="font-headline-md text-headline-md text-primary font-bold">${totalAmount.toFixed(2)}</p>
+              <p className="font-headline-md text-headline-md text-primary font-bold">{formatPrice(totalAmount)}</p>
             </div>
           </div>
           <button

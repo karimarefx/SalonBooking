@@ -21,8 +21,8 @@ const salonsData = [
     tags: ['Balayage Specialist', 'Extensions', 'Olaplex', 'Haircut', 'Color', 'Highlights'],
     nextAvailable: 'Tomorrow, 10:00 AM',
     nextAvailableMobile: 'Today, 3:30 PM',
-    priceInfo: '$$$ • Haircuts from $150',
-    priceInfoMobile: 'from $65'
+    priceInfo: '$$$ • Haircuts from 350 EGP',
+    priceInfoMobile: 'from 200 EGP'
   },
   {
     id: 'aura-studio',
@@ -39,8 +39,8 @@ const salonsData = [
     tags: ['Organic Color', 'Scalp Therapy', 'Cut & Style', 'Haircut', 'Color', 'Treatments'],
     nextAvailable: 'Today, 3:30 PM',
     nextAvailableMobile: 'Tomorrow, 10:00 AM',
-    priceInfo: '$$$ • Haircuts from $130',
-    priceInfoMobile: 'from $85'
+    priceInfo: '$$$ • Haircuts from 300 EGP',
+    priceInfoMobile: 'from 250 EGP'
   }
 ];
 
@@ -453,7 +453,7 @@ const SearchResultsPage = () => {
                       <div className="md:hidden text-right">
                         <span className="font-label-md text-[10px] text-on-surface-variant block font-medium">from</span>
                         <p className="font-body-lg text-body-lg text-on-surface font-medium">
-                          {s.id === 'aura-studio' ? '$85' : '$65'}
+                          {s.id === 'aura-studio' ? '250 EGP' : '200 EGP'}
                         </p>
                       </div>
                     </div>
@@ -486,7 +486,7 @@ const SearchResultsPage = () => {
                     </div>
                     <div className="flex items-center gap-4 w-full sm:w-auto">
                       <span className="font-label-md text-label-md text-on-surface-variant hidden sm:block font-medium">
-                        {s.id === 'aura-studio' ? '$$$ • Haircuts from $130' : '$$$ • Haircuts from $140'}
+                        {s.id === 'aura-studio' ? '$$$ • Haircuts from 300 EGP' : '$$$ • Haircuts from 350 EGP'}
                       </span>
                       <button 
                         className="w-full sm:w-auto px-6 py-3 bg-primary-container text-on-primary font-label-lg text-label-lg rounded-DEFAULT hover:bg-inverse-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary-container font-semibold"
@@ -540,7 +540,7 @@ const SearchResultsPage = () => {
             </div>
             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-surface-container-lowest p-2 rounded-lg shadow-lg w-40 z-20">
               <p className="font-label-md text-label-md text-on-surface font-semibold">Miraia Studio</p>
-              <p className="text-xs text-on-surface-variant">4.9 ★ • from $85</p>
+              <p className="text-xs text-on-surface-variant">4.9 ★ • from 250 EGP</p>
             </div>
           </div>
           {/* Map Pin 2 */}
@@ -629,14 +629,14 @@ const SearchResultsPage = () => {
               <div className="flex-1">
                 <label className="font-label-md text-label-md text-on-surface-variant block mb-1">Min</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xs">EGP</span>
                   <input className="w-full bg-surface-container border-none rounded-lg pl-8 pr-3 py-2 font-body-md text-body-md focus:ring-1 focus:ring-primary-container outline-none" placeholder="0" type="number" />
                 </div>
               </div>
               <div className="flex-1">
                 <label className="font-label-md text-label-md text-on-surface-variant block mb-1">Max</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xs">EGP</span>
                   <input className="w-full bg-surface-container border-none rounded-lg pl-8 pr-3 py-2 font-body-md text-body-md focus:ring-1 focus:ring-primary-container outline-none" placeholder="200+" type="number" />
                 </div>
               </div>

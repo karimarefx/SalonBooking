@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { formatPrice } from '../utils/currency';
 
 const MyBookingsPage = () => {
   const navigate = useNavigate();
@@ -131,7 +132,7 @@ const MyBookingsPage = () => {
           </div>
           <div className="space-y-0.5">
             <p className="text-[10px] text-outline font-semibold uppercase tracking-wider">Total</p>
-            <p className="font-bold text-primary text-lg">${parseFloat(booking.total_price).toFixed(2)}</p>
+            <p className="font-bold text-primary text-lg">{formatPrice(booking.total_price)}</p>
           </div>
         </div>
 

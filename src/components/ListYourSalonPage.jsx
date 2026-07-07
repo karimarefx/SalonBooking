@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { geocodeAddress } from '../utils/locationUtils';
+import { useAuth } from '../context/AuthContext';
 
 const ListYourSalonPage = () => {
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
 
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -164,19 +166,37 @@ const ListYourSalonPage = () => {
         {/* Right Side: Step Registration Form */}
         <section className="lg:col-span-7 bg-white rounded-2xl border border-outline-variant/30 soft-glow shadow-lg p-6 md:p-10">
           
-          {/* Progress Tracker */}
-          <div className="flex items-center justify-between mb-8 pb-4 border-b border-outline-variant/20">
-            <div>
-              <span className="text-xs uppercase tracking-wider text-outline">Step {step} of 2</span>
-              <h2 className="font-headline-md text-2xl text-on-surface mt-0.5">
-                {step === 1 ? 'Owner Account Credentials' : 'Salon Business Details'}
-              </h2>
+          {isAuthenticated ? (
+            <div className="text-center py-8 space-y-6">
+              <span className="material-symbols-outlined text-primary text-6xl font-light">account_circle</span>
+              <div className="space-y-2">
+                <h2 className="font-headline-md text-2xl text-on-surface">You're already logged in</h2>
+                <p className="text-body-md text-on-surface-variant">
+                  Authenticated as <strong className="text-on-surface">{user?.email}</strong>. Use the Salon Onboarding Wizard to set up your business menu, schedule, and team.
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/owner/onboarding')}
+                className="bg-primary text-on-primary px-8 py-3.5 rounded-lg font-label-lg uppercase tracking-wider font-semibold hover:opacity-90 active:scale-95 transition-all cursor-pointer shadow"
+              >
+                Go to Onboarding Wizard
+              </button>
             </div>
-            <div className="flex gap-2">
-              <span className={`w-3 h-3 rounded-full ${step === 1 ? 'bg-primary' : 'bg-outline-variant'}`}></span>
-              <span className={`w-3 h-3 rounded-full ${step === 2 ? 'bg-primary' : 'bg-outline-variant'}`}></span>
-            </div>
-          </div>
+          ) : (
+            <>
+              {/* Progress Tracker */}
+              <div className="flex items-center justify-between mb-8 pb-4 border-b border-outline-variant/20">
+                <div>
+                  <span className="text-xs uppercase tracking-wider text-outline">Step {step} of 2</span>
+                  <h2 className="font-headline-md text-2xl text-on-surface mt-0.5">
+                    {step === 1 ? 'Owner Account Credentials' : 'Salon Business Details'}
+                  </h2>
+                </div>
+                <div className="flex gap-2">
+                  <span className={`w-3 h-3 rounded-full ${step === 1 ? 'bg-primary' : 'bg-outline-variant'}`}></span>
+                  <span className={`w-3 h-3 rounded-full ${step === 2 ? 'bg-primary' : 'bg-outline-variant'}`}></span>
+                </div>
+              </div>
 
           {step === 1 ? (
             /* STEP 1: Owner account details */
@@ -369,7 +389,8 @@ const ListYourSalonPage = () => {
               </div>
             </form>
           )}
-
+        </>
+      )}
         </section>
       </main>
 

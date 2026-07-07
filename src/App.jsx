@@ -16,6 +16,7 @@ import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignupPage';
 import ListYourSalonPage from './components/ListYourSalonPage';
 import OwnerDashboard from './components/OwnerDashboard';
+import SalonOnboardingPage from './components/SalonOnboardingPage';
 import AboutPage from './components/AboutPage';
 import NotFoundPage from './components/NotFoundPage';
 
@@ -40,6 +41,16 @@ function App() {
             <Route path="/login" element={<Layout hideNavbar={true} footerVariant="none"><LoginPage /></Layout>} />
             <Route path="/signup" element={<Layout hideNavbar={true} footerVariant="none"><SignupPage /></Layout>} />
             <Route path="/owner/portal" element={<Layout footerVariant="simple"><ListYourSalonPage /></Layout>} />
+            <Route
+              path="/owner/onboarding"
+              element={
+                <OwnerRoute>
+                  <Layout hideNavbar={true} footerVariant="none">
+                    <SalonOnboardingPage />
+                  </Layout>
+                </OwnerRoute>
+              }
+            />
             <Route
               path="/owner/dashboard"
               element={

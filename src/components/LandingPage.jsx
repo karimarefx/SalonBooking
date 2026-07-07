@@ -46,8 +46,8 @@ const LandingPage = () => {
   const handleMobileSearchSubmit = (e) => {
     if (e) e.preventDefault();
     setSearchQuery(mobileQueryInput);
-    setSearchLocation(searchLocation || 'New York');
-    navigate(`/search?query=${encodeURIComponent(mobileQueryInput)}&location=${encodeURIComponent(searchLocation || 'New York')}`);
+    setSearchLocation(searchLocation || 'Cairo');
+    navigate(`/search?query=${encodeURIComponent(mobileQueryInput)}&location=${encodeURIComponent(searchLocation || 'Cairo')}`);
   };
 
   // Process salons to sort by proximity if available, otherwise by rating

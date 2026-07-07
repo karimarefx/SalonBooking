@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useBooking } from '../context/BookingContext';
 import { supabase } from '../supabaseClient';
 import PhotoGallery from './gallery/PhotoGallery';
+import { formatPrice } from '../utils/currency';
 
 const SalonProfilePage = () => {
   const { id } = useParams();
@@ -14,6 +15,11 @@ const SalonProfilePage = () => {
   const [specialists, setSpecialists] = useState([]);
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [reviewsList, setReviewsList] = useState([]);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ name: '', email: '', rating: 5, comment: '' });
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewFormHoverRating, setReviewFormHoverRating] = useState(0);
 
   const defaultImages = [
     "https://lh3.googleusercontent.com/aida-public/AB6AXuA9IQM4A0tyNLLJQBLJKHYbekjL3jhR9kY6f3MR77M370Ii_YHzp-x-luJMPiAYL6Z5kXaoLYKx8QpN2ZTSb4DDQ72j63zbH2DZeECyXqlNhtVDwqnsu1mh2a2yw5bjAdD3kUgXVPwXCbTz98khejOha35DhGBUmdd4jsfBmDoNumYDzZfS1VUfhIPyRXsKNmqTQ5kBa9ePFAymajaxuB1MNZIe6uHT7wDWs4t2L-oLBheR8v__c4zz",
@@ -39,11 +45,21 @@ const SalonProfilePage = () => {
           .eq('salon_id', id)
           .order('display_order', { ascending: true });
 
+        // Fetch reviews
+        const { data: reviewsData, error: reviewsErr } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('salon_id', id)
+          .order('created_at', { ascending: false });
+
         setSalon(salonData);
         setServices(servicesData || []);
         setSpecialists(specialistsData || []);
         if (!photosErr) {
           setPhotos(photosData || []);
+        }
+        if (!reviewsErr) {
+          setReviewsList(reviewsData || []);
         }
       } catch (err) {
         console.error('Failed to load salon details from Supabase:', err);
@@ -56,6 +72,47 @@ const SalonProfilePage = () => {
 
   const handleBookClick = () => {
     navigate(`/salon/${id}/services`);
+  };
+
+  const totalReviewsCount = reviewsList.length > 0 ? reviewsList.length : (salon?.reviews || 0);
+  const averageRating = reviewsList.length > 0
+    ? (reviewsList.reduce((sum, r) => sum + r.rating, 0) / reviewsList.length).toFixed(1)
+    : (salon?.rating || 4.8);
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (!reviewForm.name || !reviewForm.email) {
+      alert('Please fill in your name and email.');
+      return;
+    }
+    setSubmittingReview(true);
+    try {
+      const { data, error } = await supabase
+        .from('reviews')
+        .insert([
+          {
+            salon_id: id,
+            client_name: reviewForm.name,
+            client_email: reviewForm.email,
+            rating: reviewForm.rating,
+            comment: reviewForm.comment
+          }
+        ])
+        .select();
+
+      if (error) throw error;
+
+      if (data && data[0]) {
+        setReviewsList([data[0], ...reviewsList]);
+      }
+      setIsReviewModalOpen(false);
+      setReviewForm({ name: '', email: '', rating: 5, comment: '' });
+    } catch (err) {
+      console.error('Error submitting review:', err);
+      alert('Failed to submit review. Please try again.');
+    } finally {
+      setSubmittingReview(false);
+    }
   };
 
   if (loading) {
@@ -167,7 +224,7 @@ const SalonProfilePage = () => {
                   <div className="h-64 overflow-hidden relative">
                     <img className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" src={svc.image} alt={svc.name} />
                     <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-primary font-label-lg shadow-sm">
-                      ${typeof svc.price === 'number' ? svc.price.toFixed(0) : svc.price}
+                      {formatPrice(svc.price)}
                     </div>
                   </div>
                   <div className="p-8 flex flex-col gap-4">
@@ -209,6 +266,14 @@ const SalonProfilePage = () => {
             </div>
           </section>
 
+          {/* Reviews Section */}
+          <ReviewsSection 
+            reviewsList={reviewsList} 
+            averageRating={averageRating} 
+            totalReviewsCount={totalReviewsCount} 
+            onWriteReview={() => setIsReviewModalOpen(true)} 
+          />
+
         </div>
 
         {/* MOBILE LAYOUT (md:below) */}
@@ -229,12 +294,12 @@ const SalonProfilePage = () => {
                   {salon.location}
                 </p>
               </div>
-              <div className="flex flex-col items-end">
+               <div className="flex flex-col items-end">
                 <div className="flex items-center text-primary">
                   <span className="material-symbols-outlined block" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                  <span className="font-label-lg ml-1">{salon.rating}</span>
+                  <span className="font-label-lg ml-1">{averageRating}</span>
                 </div>
-                <span className="text-label-md text-on-surface-variant">({salon.reviews} reviews)</span>
+                <span className="text-label-md text-on-surface-variant">({totalReviewsCount} reviews)</span>
               </div>
             </div>
 
@@ -275,7 +340,7 @@ const SalonProfilePage = () => {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="font-headline-md text-primary text-headline-md">
-                      ${typeof svc.price === 'number' ? svc.price.toFixed(0) : svc.price}
+                      {formatPrice(svc.price)}
                     </span>
                     <button 
                       className="text-primary font-label-lg flex items-center gap-1"
@@ -304,15 +369,25 @@ const SalonProfilePage = () => {
                 </div>
               </div>
             </div>
-            <p className="mt-4 text-body-md text-on-surface">{isDefaultStudio ? '124 Grand St, New York' : '18 Mercer St, New York'}</p>
+            <p className="mt-4 text-body-md text-on-surface">{isDefaultStudio ? 'Road 9, Maadi, Cairo' : '26 July St, Zamalek, Cairo'}</p>
             <p className="text-body-sm text-on-surface-variant">Closed • Opens 10:00 AM Tue</p>
           </section>
+
+          {/* Reviews Section */}
+          <div className="pb-24">
+            <ReviewsSection 
+              reviewsList={reviewsList} 
+              averageRating={averageRating} 
+              totalReviewsCount={totalReviewsCount} 
+              onWriteReview={() => setIsReviewModalOpen(true)} 
+            />
+          </div>
 
           {/* Sticky Mobile Booking bar */}
           <div className="fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-outline-variant/30 px-margin-mobile py-6 flex items-center justify-between shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]">
             <div>
               <span className="text-label-md text-on-surface-variant block">Total Estimate</span>
-              <span className="text-headline-md font-headline-md text-on-surface">$0.00</span>
+              <span className="text-headline-md font-headline-md text-on-surface">0 EGP</span>
             </div>
             <button 
               className="bg-primary-container text-on-primary px-8 h-14 rounded-lg font-label-lg flex items-center justify-center gap-2 soft-glow active:scale-95 transition-all"
@@ -323,10 +398,218 @@ const SalonProfilePage = () => {
             </button>
           </div>
 
-        </div>
+         </div>
 
       </main>
+
+      {/* WRITE A REVIEW MODAL */}
+      {isReviewModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-surface w-full max-w-md rounded-2xl p-6 shadow-2xl border border-outline-variant/30 flex flex-col gap-4 relative">
+            <button
+              onClick={() => setIsReviewModalOpen(false)}
+              className="absolute top-4 right-4 text-outline hover:text-on-surface"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+
+            <h3 className="font-headline-md text-headline-md text-on-surface">Share Your Experience</h3>
+            <p className="text-body-sm text-on-surface-variant">Your feedback helps us maintain our sanctuary standards.</p>
+
+            <form onSubmit={handleSubmitReview} className="space-y-4">
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-outline uppercase tracking-wider">Your Rating</label>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => {
+                    const active = star <= (reviewFormHoverRating || reviewForm.rating);
+                    return (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setReviewForm({ ...reviewForm, rating: star })}
+                        onMouseEnter={() => setReviewFormHoverRating(star)}
+                        onMouseLeave={() => setReviewFormHoverRating(0)}
+                        className="text-primary focus:outline-none transition-transform active:scale-125"
+                      >
+                        <span className="material-symbols-outlined text-[32px] block" style={{ fontVariationSettings: `'FILL' ${active ? 1 : 0}` }}>
+                          star
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-outline uppercase tracking-wider">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Yasmin Ali"
+                  value={reviewForm.name}
+                  onChange={(e) => setReviewForm({ ...reviewForm, name: e.target.value })}
+                  className="w-full bg-surface-container border border-outline-variant rounded-lg px-4 py-2.5 text-body-md focus:border-primary outline-none transition-colors"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-outline uppercase tracking-wider">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="e.g. yasmin@domain.com"
+                  value={reviewForm.email}
+                  onChange={(e) => setReviewForm({ ...reviewForm, email: e.target.value })}
+                  className="w-full bg-surface-container border border-outline-variant rounded-lg px-4 py-2.5 text-body-md focus:border-primary outline-none transition-colors"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-outline uppercase tracking-wider">Review Comments</label>
+                <textarea
+                  placeholder="Describe your styling experience..."
+                  rows={4}
+                  value={reviewForm.comment}
+                  onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
+                  className="w-full bg-surface-container border border-outline-variant rounded-lg px-4 py-2.5 text-body-md focus:border-primary outline-none transition-colors resize-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submittingReview}
+                className="w-full bg-primary text-on-primary py-4 rounded-lg font-label-lg font-semibold uppercase tracking-wider hover:opacity-90 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+              >
+                {submittingReview ? (
+                  <>
+                    <span className="animate-spin material-symbols-outlined text-[20px]">sync</span>
+                    Submitting...
+                  </>
+                ) : (
+                  'Submit Review'
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
+  );
+};
+
+// --- REUSABLE REVIEWS SECTION COMPONENT ---
+const ReviewsSection = ({ reviewsList, averageRating, totalReviewsCount, onWriteReview }) => {
+  const distribution = [0, 0, 0, 0, 0];
+  reviewsList.forEach(r => {
+    if (r.rating >= 1 && r.rating <= 5) {
+      distribution[r.rating - 1]++;
+    }
+  });
+
+  const getPercent = (stars) => {
+    if (reviewsList.length === 0) return stars === 5 ? '100%' : '0%';
+    const count = distribution[stars - 1];
+    return `${((count / reviewsList.length) * 100).toFixed(0)}%`;
+  };
+
+  return (
+    <section className="w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-stack-lg border-t border-outline-variant/20">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+          <h2 className="font-headline-lg text-headline-lg text-on-surface">Customer Reviews</h2>
+          <p className="text-secondary font-body-md mt-1">Real feedback from verified guest experiences.</p>
+        </div>
+        <button
+          onClick={onWriteReview}
+          className="px-6 py-3 bg-primary text-on-primary font-label-lg rounded-lg hover:opacity-90 active:scale-95 transition-all shadow-md flex items-center gap-2"
+        >
+          <span className="material-symbols-outlined text-[20px]">rate_review</span>
+          Write a Review
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
+        {/* Summary Card */}
+        <div className="md:col-span-4 bg-surface-container-low p-6 rounded-xl border border-outline-variant/10 flex flex-col items-center text-center">
+          <p className="text-7xl font-bold text-primary leading-none">{averageRating}</p>
+          <div className="flex items-center text-primary mt-3 gap-0.5">
+            {[1, 2, 3, 4, 5].map((s) => {
+              const fill = s <= Math.round(averageRating);
+              return (
+                <span key={s} className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: `'FILL' ${fill ? 1 : 0}` }}>
+                  star
+                </span>
+              );
+            })}
+          </div>
+          <p className="text-body-sm text-outline mt-2">Based on {totalReviewsCount} reviews</p>
+        </div>
+
+        {/* Stars Breakdown */}
+        <div className="md:col-span-4 space-y-2 w-full">
+          {[5, 4, 3, 2, 1].map((stars) => {
+            const pct = getPercent(stars);
+            return (
+              <div key={stars} className="flex items-center gap-3 text-body-sm text-on-surface-variant">
+                <span className="w-3 text-right font-medium">{stars}</span>
+                <span className="material-symbols-outlined text-[16px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                <div className="flex-grow h-2 bg-surface-container rounded-full overflow-hidden">
+                  <div className="h-full bg-primary" style={{ width: pct }} />
+                </div>
+                <span className="w-10 text-right text-outline">{pct}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Individual Comments */}
+        <div className="md:col-span-4 space-y-4 max-h-[350px] overflow-y-auto pr-2 w-full">
+          {reviewsList.length === 0 ? (
+            <div className="text-center py-8 text-on-surface-variant">
+              <span className="material-symbols-outlined text-4xl text-outline mb-2 block">chat_bubble_outline</span>
+              No reviews yet. Be the first to share your experience!
+            </div>
+          ) : (
+            reviewsList.map((review, rIdx) => {
+              const initials = review.client_name ? review.client_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'G';
+              return (
+                <div key={rIdx} className="bg-surface p-4 rounded-xl border border-outline-variant/10 space-y-2">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-primary-container text-on-primary font-bold text-sm flex items-center justify-center">
+                        {initials}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-body-sm text-on-surface">{review.client_name}</p>
+                        <div className="flex items-center text-primary text-[14px]">
+                          {[1, 2, 3, 4, 5].map((s) => {
+                            const fill = s <= review.rating;
+                            return (
+                              <span key={s} className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: `'FILL' ${fill ? 1 : 0}` }}>
+                                star
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-outline">
+                      {new Date(review.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </div>
+                  {review.comment && (
+                    <p className="text-body-sm text-on-surface-variant leading-relaxed pl-12">
+                      "{review.comment}"
+                    </p>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </section>
   );
 };
 

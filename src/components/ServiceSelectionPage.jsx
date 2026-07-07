@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useBooking } from '../context/BookingContext';
+import { formatPrice } from '../utils/currency';
 
 const salonServices = {
   'maison-de-beaute': [
@@ -297,7 +298,7 @@ const ServiceSelectionPage = () => {
                                 <div className="flex justify-between items-start mb-2 gap-4">
                                   <h4 className="font-headline-md text-[20px] text-on-surface leading-snug">{item.name}</h4>
                                   <div className="text-right flex-shrink-0">
-                                    <p className="font-semibold text-primary">From ${item.price}</p>
+                                    <p className="font-semibold text-primary">From {formatPrice(item.price)}</p>
                                     <p className="text-body-sm text-outline">{item.duration} min</p>
                                   </div>
                                 </div>
@@ -352,7 +353,7 @@ const ServiceSelectionPage = () => {
           <div className="flex items-center gap-8">
             <div className="flex flex-col text-right">
               <span className="font-label-md text-outline uppercase">Est. Price</span>
-              <span className="font-headline-md text-[18px] text-primary">${totalPrice}</span>
+              <span className="font-headline-md text-[18px] text-primary">{formatPrice(totalPrice)}</span>
             </div>
             <button 
               className="bg-primary text-on-primary font-label-lg text-label-lg px-8 h-12 rounded-lg transition-all active:scale-95 flex items-center gap-2 hover:bg-primary-container disabled:bg-surface-variant disabled:text-outline cursor-pointer"
@@ -370,7 +371,7 @@ const ServiceSelectionPage = () => {
       <footer className="md:hidden fixed bottom-0 left-0 right-0 bg-surface/95 backdrop-blur-md px-margin-mobile py-6 flex items-center justify-between border-t border-outline-variant/30 z-40 shadow-[0_-8px_20px_rgba(0,0,0,0.05)]">
         <div className="flex-grow">
           <p className="font-body-sm text-body-sm text-on-surface-variant">Selected: <span className="font-semibold text-primary">{selectedCount} service{selectedCount !== 1 ? 's' : ''}</span></p>
-          <p className="font-label-lg text-label-lg text-on-surface">${totalPrice.toFixed(2)}</p>
+          <p className="font-label-lg text-label-lg text-on-surface">{formatPrice(totalPrice)}</p>
         </div>
         <button 
           onClick={handleContinue}

@@ -30,24 +30,28 @@ async function run() {
     await client.query(schemaSql);
     console.log('Schema executed successfully!');
 
-    // Seed Salons
+    // Seed Salons (Egyptian Locations and Coordinates)
     console.log('Seeding salons...');
     const salons = [
       {
         id: 'maison-de-beaute',
         name: 'Maison de Beauté',
-        location: 'Soho, Manhattan',
+        location: 'Zamalek, Cairo',
+        latitude: 30.0631,
+        longitude: 31.2212,
         rating: 4.9,
         reviews: 84,
-        about: 'An exclusive sanctuary offering bespoke color and precision cutting. Experience unparalleled luxury in the heart of Soho with our master stylists.',
-        description: 'At Maison de Beauté, we believe beauty is an intimate dialogue between art and personhood. Our philosophy is rooted in the French tradition of \'effortless elegance\'—enhancing your natural features rather than masking them. Every appointment begins with a personalized consultation in our private garden lounge, ensuring that your journey with us is as serene as the results are stunning. We exclusively use organic, high-performance elixirs crafted in the heart of Provence.',
+        about: 'An exclusive sanctuary offering bespoke color and precision cutting. Experience unparalleled luxury in the heart of Zamalek.',
+        description: 'At Maison de Beauté, we believe beauty is an intimate dialogue between art and personhood. Our philosophy is rooted in the French tradition of \'effortless elegance\'—enhancing your natural features rather than masking them. Every appointment begins with a personalized consultation in our private courtyard, ensuring that your journey with us is as serene as the results are stunning. We exclusively use organic, high-performance elixirs.',
         image_url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAjHFvOUoUFzcS9fm-il0JQPCA529pBB_3DI0qY_gtHtKGy-8P54l0Ij2n9cm_XfVbJtKWqRffeY0Gebziv7yabVA4sYAz60Afcf_jfe2euUjzXZycXbIrrBhZZotrOTfxM4F5psFcW1wp_ROehfPfemcY1A7KiiH5Gr5_kkhR7OMqSN5VwtVLCwnEvIttzOUzdb8z9OM02DuNnl8meiv58KhlablTAOIyu5AGEZAQ6C1tTtnA0x4BeWDe6hWoaJ2whOo0ui8vu0tM',
         tags: ['Balayage Specialist', 'Extensions', 'Olaplex', 'Haircut', 'Color', 'Highlights']
       },
       {
         id: 'aura-studio',
         name: 'Atelier Miraia',
-        location: 'Tribeca, Manhattan',
+        location: 'Maadi, Cairo',
+        latitude: 29.9602,
+        longitude: 31.2569,
         rating: 4.8,
         reviews: 128,
         about: 'Where artistry meets wellness. Our holistic approach ensures not just beautiful hair, but a rejuvenating experience utilizing organic, sustainably sourced products.',
@@ -59,22 +63,22 @@ async function run() {
 
     for (const salon of salons) {
       await client.query(
-        `INSERT INTO public.salons (id, name, location, rating, reviews, about, description, image_url, tags) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
-         ON CONFLICT (id) DO UPDATE SET name = $2, location = $3, rating = $4, reviews = $5, about = $6, description = $7, image_url = $8, tags = $9`,
-        [salon.id, salon.name, salon.location, salon.rating, salon.reviews, salon.about, salon.description, salon.image_url, salon.tags]
+        `INSERT INTO public.salons (id, name, location, rating, reviews, about, description, image_url, tags, latitude, longitude) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) 
+         ON CONFLICT (id) DO UPDATE SET name = $2, location = $3, rating = $4, reviews = $5, about = $6, description = $7, image_url = $8, tags = $9, latitude = $10, longitude = $11`,
+        [salon.id, salon.name, salon.location, salon.rating, salon.reviews, salon.about, salon.description, salon.image_url, salon.tags, salon.latitude, salon.longitude]
       );
     }
     console.log('Salons seeded successfully!');
 
-    // Seed Services
+    // Seed Services (Egyptian EGP Prices)
     console.log('Seeding services...');
     const services = [
       // Maison de Beauté
       {
         salon_id: 'maison-de-beaute',
         name: 'Signature Haircut',
-        price: 95.00,
+        price: 350.00,
         duration: '60 min',
         category: 'Haircut & Styling',
         description: 'Our master stylists provide a personalized consultation, followed by a luxury wash, precision cut, and signature blowout finish.',
@@ -83,7 +87,7 @@ async function run() {
       {
         salon_id: 'maison-de-beaute',
         name: 'Blowout & Style',
-        price: 65.00,
+        price: 200.00,
         duration: '45 min',
         category: 'Haircut & Styling',
         description: 'The ultimate refreshing experience. Includes an exfoliating scalp massage, luxury conditioning, and professional styling of your choice.',
@@ -92,7 +96,7 @@ async function run() {
       {
         salon_id: 'maison-de-beaute',
         name: 'Couture Cut',
-        price: 65.00,
+        price: 200.00,
         duration: '75 min',
         category: 'Haircut & Styling',
         description: 'Tailored style designed to enhance your natural features and structure.',
@@ -101,7 +105,7 @@ async function run() {
       {
         salon_id: 'maison-de-beaute',
         name: 'Balayage Artistry',
-        price: 245.00,
+        price: 950.00,
         duration: '180 min',
         category: 'Color & Highlights',
         description: 'Custom hand-painted highlights for a natural, sun-kissed look. Includes a gloss toner and deep restorative treatment.',
@@ -110,7 +114,7 @@ async function run() {
       {
         salon_id: 'maison-de-beaute',
         name: 'Signature Color',
-        price: 140.00,
+        price: 550.00,
         duration: '90 min',
         category: 'Color & Highlights',
         description: 'Full custom single-process color to enrich tones and offer seamless blending.',
@@ -119,7 +123,7 @@ async function run() {
       {
         salon_id: 'maison-de-beaute',
         name: 'Scalp Detox',
-        price: 185.00,
+        price: 450.00,
         duration: '60 min',
         category: 'Treatments',
         description: 'Deep purifying scalp therapy designed to promote hair health and restore shine.',
@@ -128,7 +132,7 @@ async function run() {
       {
         salon_id: 'maison-de-beaute',
         name: 'Miraia Gold Facial',
-        price: 145.00,
+        price: 600.00,
         duration: '60 min',
         category: 'Treatments',
         description: 'Our signature illuminating treatment using 24k gold leaf and lymphatic drainage.',
@@ -137,7 +141,7 @@ async function run() {
       {
         salon_id: 'maison-de-beaute',
         name: 'Deep Tissue Release',
-        price: 180.00,
+        price: 500.00,
         duration: '90 min',
         category: 'Treatments',
         description: 'Targeted pressure for chronic muscle tension and stress relief.',
@@ -148,7 +152,7 @@ async function run() {
       {
         salon_id: 'aura-studio',
         name: 'Cut & Style',
-        price: 85.00,
+        price: 300.00,
         duration: '75 min',
         category: 'Haircut & Styling',
         description: 'Precision haircut customized to your face shape and hair texture, complete with signature styling.',
@@ -157,7 +161,7 @@ async function run() {
       {
         salon_id: 'aura-studio',
         name: 'Red Carpet Blowout',
-        price: 65.00,
+        price: 200.00,
         duration: '45 min',
         category: 'Haircut & Styling',
         description: 'Intense volume and shine styling for your most important events.',
@@ -166,7 +170,7 @@ async function run() {
       {
         salon_id: 'aura-studio',
         name: 'Organic Color',
-        price: 130.00,
+        price: 450.00,
         duration: '90 min',
         category: 'Color & Highlights',
         description: 'Full premium single-process color using certified organic, non-toxic formulations.',
@@ -175,7 +179,7 @@ async function run() {
       {
         salon_id: 'aura-studio',
         name: 'Balayage & Glow',
-        price: 210.00,
+        price: 750.00,
         duration: '150 min',
         category: 'Color & Highlights',
         description: 'Hand-painted highlights for a sun-kissed, natural dimension look.',
@@ -184,7 +188,7 @@ async function run() {
       {
         salon_id: 'aura-studio',
         name: 'Scalp Therapy',
-        price: 110.00,
+        price: 350.00,
         duration: '60 min',
         category: 'Treatments',
         description: 'Holistic scalp treatments with customized botanical serums for ultimate scalp health.',
@@ -200,14 +204,25 @@ async function run() {
     }
     console.log('Services seeded successfully!');
 
-    // Seed Specialists
+    // Seed Specialists (Weekly Availability Schedules added)
     console.log('Seeding specialists...');
+    const defaultSchedule = {
+      monday:    { enabled: true,  start: '09:00', end: '18:00' },
+      tuesday:   { enabled: true,  start: '09:00', end: '18:00' },
+      wednesday: { enabled: true,  start: '09:00', end: '18:00' },
+      thursday:  { enabled: true,  start: '09:00', end: '18:00' },
+      friday:    { enabled: true,  start: '09:00', end: '18:00' },
+      saturday:  { enabled: true,  start: '10:00', end: '16:00' },
+      sunday:    { enabled: false, start: '09:00', end: '18:00' },
+    };
+
     const specialists = [
       {
         salon_id: 'maison-de-beaute',
         name: 'Julianne V.',
         title: 'Creative Director',
         rating: 4.9,
+        schedule: defaultSchedule,
         image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA11Dqp17R4H87N_xWha2fwH4Y82r5R7K2HKtCjPBGDFA76caP_JbNGcW_F0zxJOQRn11IBA5RQ5FsHWTOY4WGaAbdqh3A2Fnqyq0576tEVulHfjWvO73nWPyrVPbDJlZ47jAttprfx3IilQp9_5KLz1CrHd5Tu7a-qEr8ZP7VIKe7jAT42Sa-4FRz-EUXakFgO6VoNB3oz0vsWEC6g9uWrID_5qoVIpW2oFLqebflGF3eDSPJSDunH'
       },
       {
@@ -215,6 +230,7 @@ async function run() {
         name: 'Marc-Antoine',
         title: 'Master Colorist',
         rating: 4.8,
+        schedule: defaultSchedule,
         image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCZtjajcUEbIVJ0FkuQ_Lg04sD9bKq99fV04Wavxchr2qYh2_npQgQAzxkC4kGEdHjSNGINr2bmKcYVHuKM-bbD5iUM4kLeLuNqPP6Bx_B15MlfAQYXLpLirCpkGfLI9j6hRcYIdW-yxgUrjjbn9FnOPsbvCISxZy-3ptAfyCVD3G7pg9vzbqhP-tAMgybkY7gwCRcQVAhlZhFZHRKeA7mr0As9jli4TRAnuMWeifU418P_Bjh4Ler_'
       },
       {
@@ -222,6 +238,7 @@ async function run() {
         name: 'Léa Dupont',
         title: 'Treatment Specialist',
         rating: 4.7,
+        schedule: defaultSchedule,
         image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB5pla7JCebC51sK1EJ3HkZr5jZ3r7HP_LXZv7Ag_gHQQS31mbyOu6V5czZfeMdNnUn4XdPnXLBACcYQFeF2RnFcgrCeAxOO-9qMB07GNpCWNOASvfgVdpdVQbyn-4S2WI-aFWC6bGE8mHG5ED3Gc9daQe75FVY7soU6Elrt6Yo_FFIAj3fSWEyavdnZg0PygGIghiQE_HyOQviHhtj0J1NN3KRk90juncY_HB_9McPNw-8jAxNlT_6'
       },
       {
@@ -229,6 +246,7 @@ async function run() {
         name: 'Elena Vance',
         title: 'Senior Stylist',
         rating: 4.9,
+        schedule: defaultSchedule,
         image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA11Dqp17R4H87N_xWha2fwH4Y82r5R7K2HKtCjPBGDFA76caP_JbNGcW_F0zxJOQRn11IBA5RQ5FsHWTOY4WGaAbdqh3A2Fnqyq0576tEVulHfjWvO73nWPyrVPbDJlZ47jAttprfx3IilQp9_5KLz1CrHd5Tu7a-qEr8ZP7VIKe7jAT42Sa-4FRz-EUXakFgO6VoNB3oz0vsWEC6g9uWrID_5qoVIpW2oFLqebflGF3eDSPJSDunH'
       },
       {
@@ -236,6 +254,7 @@ async function run() {
         name: 'Sarah Chen',
         title: 'Master Colorist',
         rating: 5.0,
+        schedule: defaultSchedule,
         image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCZtjajcUEbIVJ0FkuQ_Lg04sD9bKq99fV04Wavxchr2qYh2_npQgQAzxkC4kGEdHjSNGINr2bmKcYVHuKM-bbD5iUM4kLeLuNqPP6Bx_B15MlfAQYXLpLirCpkGfLI9j6hRcYIdW-yxgUrjjbn9FnOPsbvCISxZy-3ptAfyCVD3G7pg9vzbqhP-tAMgybkY7gwCRcQVAhlZhFZHRKeA7mr0As9jli4TRAnuMWeifU418P_Bjh4Ler_  '
       },
       {
@@ -243,14 +262,15 @@ async function run() {
         name: 'Mia Rossi',
         title: 'Esthetician',
         rating: 4.8,
+        schedule: defaultSchedule,
         image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB5pla7JCebC51sK1EJ3HkZr5jZ3r7HP_LXZv7Ag_gHQQS31mbyOu6V5czZfeMdNnUn4XdPnXLBACcYQFeF2RnFcgrCeAxOO-9qMB07GNpCWNOASvfgVdpdVQbyn-4S2WI-aFWC6bGE8mHG5ED3Gc9daQe75FVY7soU6Elrt6Yo_FFIAj3fSWEyavdnZg0PygGIghiQE_HyOQviHhtj0J1NN3KRk90juncY_HB_9McPNw-8jAxNlT_6'
       }
     ];
 
     for (const specialist of specialists) {
       await client.query(
-        `INSERT INTO public.specialists (salon_id, name, title, rating, image) VALUES ($1, $2, $3, $4, $5)`,
-        [specialist.salon_id, specialist.name, specialist.title, specialist.rating, specialist.image]
+        `INSERT INTO public.specialists (salon_id, name, title, rating, image, schedule) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [specialist.salon_id, specialist.name, specialist.title, specialist.rating, specialist.image, JSON.stringify(specialist.schedule)]
       );
     }
     console.log('Specialists seeded successfully!');

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
 import PhotoUploader from './gallery/PhotoUploader';
+import { formatPrice } from '../utils/currency';
 
 const OwnerDashboard = () => {
   const navigate = useNavigate();
@@ -11,6 +12,8 @@ const OwnerDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview'); // overview, bookings, services, specialists, settings
   const [loading, setLoading] = useState(true);
   const [salon, setSalon] = useState(null);
+  const [calendarViewDate, setCalendarViewDate] = useState(new Date());
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState(new Date().toISOString().split('T')[0]);
   
   // Data lists
   const [bookings, setBookings] = useState([]);
@@ -146,7 +149,7 @@ const OwnerDashboard = () => {
           <h2 className="font-headline-lg text-2xl font-semibold">No Salon Registered</h2>
           <p className="text-body-sm text-on-surface-variant">You haven't listed a salon under this account yet.</p>
         </div>
-        <button onClick={() => navigate('/owner/portal')} className="bg-primary-container text-white px-8 py-3.5 rounded-lg font-label-lg uppercase tracking-wider hover:bg-primary transition-colors">
+        <button onClick={() => navigate('/owner/onboarding')} className="bg-primary-container text-white px-8 py-3.5 rounded-lg font-label-lg uppercase tracking-wider hover:bg-primary transition-colors">
           Register Your Salon Now
         </button>
       </div>
@@ -446,6 +449,13 @@ const OwnerDashboard = () => {
             <span>Overview & Analytics</span>
           </button>
           <button 
+            onClick={() => setActiveTab('calendar')}
+            className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${activeTab === 'calendar' ? 'bg-primary text-white font-semibold' : 'text-on-surface-variant hover:bg-surface-container'}`}
+          >
+            <span className="material-symbols-outlined text-lg">calendar_month</span>
+            <span>Appointment Calendar</span>
+          </button>
+          <button 
             onClick={() => setActiveTab('bookings')}
             className={`w-full text-left px-4 py-3 rounded-lg flex items-center justify-between transition-colors ${activeTab === 'bookings' ? 'bg-primary text-white font-semibold' : 'text-on-surface-variant hover:bg-surface-container'}`}
           >
@@ -492,6 +502,195 @@ const OwnerDashboard = () => {
         {/* Tab content panels */}
         <main className="lg:col-span-9 space-y-6">
           
+          {/* TAB 1.5: CALENDAR VIEW */}
+          {activeTab === 'calendar' && (() => {
+            const parseTimeToMinutes = (timeString) => {
+              if (!timeString) return 0;
+              const [timeStr, period] = timeString.split(' ');
+              let [h, m] = timeStr.split(':').map(Number);
+              if (period === 'PM' && h !== 12) h += 12;
+              if (period === 'AM' && h === 12) h = 0;
+              return h * 60 + (m || 0);
+            };
+
+            const getDaysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
+            const getFirstDayOfMonth = (y, m) => new Date(y, m, 1).getDay();
+
+            const cYear = calendarViewDate.getFullYear();
+            const cMonth = calendarViewDate.getMonth();
+            const daysCount = getDaysInMonth(cYear, cMonth);
+            const startOffset = getFirstDayOfMonth(cYear, cMonth);
+            const mName = calendarViewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+            const getDayBookings = (dayNum) => {
+              const dStr = `${cYear}-${String(cMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+              return bookings.filter(b => b.booking_date === dStr && b.status !== 'Cancelled');
+            };
+
+            const selectedDayBookingsList = bookings.filter(b => {
+              return b.booking_date === selectedCalendarDay;
+            });
+
+            return (
+              <div className="space-y-8 animate-fadeIn">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                  
+                  {/* Left Column: Calendar Grid */}
+                  <div className="md:col-span-7 bg-white rounded-xl border border-outline-variant/30 shadow-sm p-6">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="font-headline-md text-xl text-on-surface font-semibold">Appointment Calendar</h3>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setCalendarViewDate(new Date(cYear, cMonth - 1, 1))}
+                          className="p-2 rounded-full hover:bg-surface-container transition-colors cursor-pointer border border-outline-variant/20"
+                        >
+                          <span className="material-symbols-outlined block">chevron_left</span>
+                        </button>
+                        <button
+                          onClick={() => setCalendarViewDate(new Date(cYear, cMonth + 1, 1))}
+                          className="p-2 rounded-full hover:bg-surface-container transition-colors cursor-pointer border border-outline-variant/20"
+                        >
+                          <span className="material-symbols-outlined block">chevron_right</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="text-center mb-4">
+                      <span className="font-label-lg text-primary uppercase tracking-widest font-semibold">{mName}</span>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-y-3 text-center">
+                      {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                        <div key={day} className="font-label-md text-xs font-semibold text-outline uppercase tracking-wider py-1">{day}</div>
+                      ))}
+                      
+                      {/* Open empty slots for offset (Vite starts week on Monday) */}
+                      {Array.from({ length: startOffset === 0 ? 6 : startOffset - 1 }).map((_, i) => (
+                        <div key={`empty-${i}`} />
+                      ))}
+
+                      {Array.from({ length: daysCount }).map((_, i) => {
+                        const day = i + 1;
+                        const dateStr = `${cYear}-${String(cMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                        const isSelected = selectedCalendarDay === dateStr;
+                        const dayBookings = getDayBookings(day);
+                        const hasBookings = dayBookings.length > 0;
+
+                        return (
+                          <div
+                            key={day}
+                            onClick={() => setSelectedCalendarDay(dateStr)}
+                            className={`h-12 w-12 mx-auto flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer relative font-body-md text-sm
+                              ${isSelected ? 'bg-primary text-on-primary shadow font-semibold scale-105' : 'hover:bg-surface-container-low text-on-surface'}
+                              ${hasBookings && !isSelected ? 'border border-primary-container bg-primary/5 font-semibold' : ''}
+                            `}
+                          >
+                            <span>{day}</span>
+                            {hasBookings && (
+                              <span className={`absolute bottom-1 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-primary'}`} />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Right Column: Bookings for Selected Day */}
+                  <div className="md:col-span-5 bg-white rounded-xl border border-outline-variant/30 shadow-sm p-6 min-h-[400px] flex flex-col">
+                    <div className="border-b border-outline-variant/20 pb-4 mb-4 flex justify-between items-center">
+                      <h4 className="font-headline-md text-lg text-on-surface font-semibold">Bookings</h4>
+                      <span className="text-xs font-semibold bg-primary/10 text-primary px-2.5 py-1 rounded-full">
+                        {new Date(selectedCalendarDay + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}
+                      </span>
+                    </div>
+
+                    <div className="space-y-4 flex-grow overflow-y-auto max-h-[480px]">
+                      {selectedDayBookingsList.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-center py-20 text-on-surface-variant">
+                          <span className="material-symbols-outlined text-4xl text-outline font-light mb-2">event_busy</span>
+                          <p className="text-sm font-semibold">No appointments today</p>
+                          <p className="text-xs text-outline">Bookings for this date will appear here.</p>
+                        </div>
+                      ) : (
+                        [...selectedDayBookingsList]
+                          .sort((a,b) => parseTimeToMinutes(a.booking_time) - parseTimeToMinutes(b.booking_time))
+                          .map(b => (
+                            <div key={b.id} className="border border-outline-variant/30 rounded-xl p-4 space-y-3 hover:shadow-sm transition-shadow">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-semibold text-on-surface text-base">{b.client_name}</p>
+                                  <p className="text-xs text-outline mt-0.5">{b.booking_time} • {b.slot_duration_minutes || 60} mins</p>
+                                </div>
+                                <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full 
+                                  ${b.status === 'Confirmed' ? 'bg-primary-fixed text-on-primary-fixed' : ''}
+                                  ${b.status === 'Pending' ? 'bg-secondary-container text-on-secondary-container' : ''}
+                                  ${b.status === 'Completed' ? 'bg-surface-container text-secondary' : ''}
+                                  ${b.status === 'Cancelled' ? 'bg-error-container text-on-error-container' : ''}
+                                `}>
+                                  {b.status}
+                                </span>
+                              </div>
+
+                              <div className="text-xs text-on-surface-variant space-y-1 bg-surface-container-low p-2 rounded-lg">
+                                <p><strong className="text-on-surface">Specialist:</strong> {b.specialists?.name || 'Any Available'}</p>
+                                <p><strong className="text-on-surface">Contact:</strong> {b.client_phone} • {b.client_email}</p>
+                                <div className="pt-1.5 mt-1 border-t border-outline-variant/10">
+                                  <p className="font-semibold text-[11px] text-primary uppercase tracking-wider mb-1">Treatments</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {(b.selected_services || []).map((s, i) => (
+                                      <span key={i} className="bg-white px-2 py-0.5 rounded border border-outline-variant/20 text-[10px]">{s.name}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                                {b.notes && (
+                                  <p className="text-[11px] italic mt-1 pt-1 border-t border-outline-variant/10 text-outline">Notes: {b.notes}</p>
+                                )}
+                              </div>
+
+                              {/* Quick Actions inside Card */}
+                              <div className="flex gap-2 justify-end pt-1">
+                                {b.status === 'Pending' && (
+                                  <button
+                                    onClick={() => handleUpdateBookingStatus(b.id, 'Confirmed')}
+                                    className="px-3 py-1 bg-primary text-white text-[11px] font-semibold rounded-lg hover:opacity-90 cursor-pointer"
+                                  >
+                                    Confirm
+                                  </button>
+                                )}
+                                {b.status !== 'Completed' && b.status !== 'Cancelled' && (
+                                  <>
+                                    <button
+                                      onClick={() => handleOpenReschedule(b)}
+                                      className="px-3 py-1 border border-outline-variant text-[11px] font-semibold rounded-lg hover:bg-surface-container cursor-pointer text-on-surface-variant"
+                                    >
+                                      Reschedule
+                                    </button>
+                                    <button
+                                      onClick={() => handleUpdateBookingStatus(b.id, 'Completed')}
+                                      className="px-3 py-1 bg-green-700 text-white text-[11px] font-semibold rounded-lg hover:opacity-90 cursor-pointer"
+                                    >
+                                      Complete
+                                    </button>
+                                    <button
+                                      onClick={() => handleUpdateBookingStatus(b.id, 'Cancelled')}
+                                      className="px-3 py-1 border border-error/20 text-error text-[11px] font-semibold rounded-lg hover:bg-error-container cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                      )}
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            );
+          })()}
+
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
             <div className="space-y-8">
@@ -506,7 +705,7 @@ const OwnerDashboard = () => {
                 </div>
                 <div className="bg-white p-6 rounded-xl border border-outline-variant/20 shadow-sm flex flex-col justify-between">
                   <span className="text-xs font-semibold text-outline uppercase tracking-wider">Total Revenue</span>
-                  <span className="font-headline-lg text-4xl text-primary mt-2 font-bold">${totalRevenue.toFixed(2)}</span>
+                  <span className="font-headline-lg text-4xl text-primary mt-2 font-bold">{formatPrice(totalRevenue)}</span>
                 </div>
                 <div className="bg-white p-6 rounded-xl border border-outline-variant/20 shadow-sm flex flex-col justify-between">
                   <span className="text-xs font-semibold text-outline uppercase tracking-wider">Average Rating</span>
@@ -545,7 +744,7 @@ const OwnerDashboard = () => {
                             <p className="text-xs text-outline">{booking.booking_time}</p>
                           </td>
                           <td className="px-6 py-4">{booking.specialists?.name || 'Any Specialist'}</td>
-                          <td className="px-6 py-4 font-semibold text-primary">${parseFloat(booking.total_price).toFixed(2)}</td>
+                          <td className="px-6 py-4 font-semibold text-primary">{formatPrice(booking.total_price)}</td>
                           <td className="px-6 py-4">
                             <span className={`px-2.5 py-1 rounded-full text-[10px] uppercase font-semibold ${booking.status === 'Cancelled' ? 'bg-error-container text-on-error-container' : booking.status === 'Completed' ? 'bg-secondary-container text-on-secondary-container' : 'bg-primary-fixed text-on-primary-fixed'}`}>
                               {booking.status}
@@ -640,7 +839,7 @@ const OwnerDashboard = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4">{booking.specialists?.name || 'Any Specialist'}</td>
-                        <td className="px-6 py-4 font-semibold text-primary">${parseFloat(booking.total_price).toFixed(2)}</td>
+                        <td className="px-6 py-4 font-semibold text-primary">{formatPrice(booking.total_price)}</td>
                         <td className="px-6 py-4 space-y-1.5">
                           {booking.status === 'Confirmed' && (
                             <>
@@ -728,7 +927,7 @@ const OwnerDashboard = () => {
                       <div className="flex justify-between items-start gap-4">
                         <h4 className="font-headline-md text-lg text-on-surface font-semibold leading-snug">{svc.name}</h4>
                         <div className="text-right">
-                          <p className="font-semibold text-primary">${parseFloat(svc.price).toFixed(2)}</p>
+                          <p className="font-semibold text-primary">{formatPrice(svc.price)}</p>
                           <p className="text-xs text-outline font-medium">{svc.duration}</p>
                         </div>
                       </div>
@@ -971,7 +1170,7 @@ const OwnerDashboard = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="block font-label-lg text-xs text-on-surface-variant">Price ($)</label>
+                  <label className="block font-label-lg text-xs text-on-surface-variant">Price (EGP)</label>
                   <input 
                     className="w-full bg-surface-container-low border border-outline-variant/50 rounded-lg py-2.5 px-3 font-body-sm outline-none focus:border-primary transition-colors" 
                     placeholder="95.00"

@@ -1,6 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useBooking } from '../context/BookingContext';
+import { supabase } from '../supabaseClient';
+import { formatPrice, PHONE_PLACEHOLDER } from '../utils/currency';
+
+const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+const parseTimeToMinutes = (timeString) => {
+  if (!timeString) return 0;
+  const [timeStr, period] = timeString.split(' ');
+  let [h, m] = timeStr.split(':').map(Number);
+  if (period === 'PM' && h !== 12) h += 12;
+  if (period === 'AM' && h === 12) h = 0;
+  return h * 60 + (m || 0);
+};
+
+const hhmmToMinutes = (hhmm) => {
+  if (!hhmm) return 0;
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+};
 
 const ConfirmBookingPage = () => {
   const { id } = useParams();
@@ -91,14 +110,120 @@ const ConfirmBookingPage = () => {
         return sum + (match ? parseInt(match[0]) : 60);
       }, 0) || 60;
 
+      // --- Optimistic Availability Concurrency Check ---
+      const startTimeMins = parseTimeToMinutes(selectedTime || '12:00 PM');
+      const endTimeMins = startTimeMins + totalDurationMins;
+      const dateObj = new Date(bookingDateDb + 'T00:00:00');
+      const dayKey = DAY_KEYS[dateObj.getDay()];
+      const defaultOpen = { enabled: true, start: '09:00', end: '18:00' };
+
+      // 1. Fetch all specialists for this salon to verify availability
+      const { data: specialists } = await supabase
+        .from('specialists')
+        .select('*')
+        .eq('salon_id', id);
+
+      if (!specialists || specialists.length === 0) {
+        throw new Error('No specialists registered for this salon.');
+      }
+
+      // 2. Fetch all bookings for this date (excluding cancelled ones)
+      const { data: activeBookings } = await supabase
+        .from('bookings')
+        .select('specialist_id, booking_time, slot_duration_minutes, selected_services')
+        .eq('salon_id', id)
+        .eq('booking_date', bookingDateDb)
+        .not('status', 'eq', 'Cancelled');
+
+      // Group bookings by specialist
+      const bookingsBySp = {};
+      activeBookings?.forEach(b => {
+        if (!b.specialist_id) return;
+        if (!bookingsBySp[b.specialist_id]) {
+          bookingsBySp[b.specialist_id] = [];
+        }
+        const bStart = parseTimeToMinutes(b.booking_time);
+        let bDuration = b.slot_duration_minutes || 60;
+        if (!b.slot_duration_minutes && b.selected_services) {
+          bDuration = (b.selected_services || []).reduce((sum, svc) => {
+            const match = typeof svc.duration === 'string' ? svc.duration.match(/\d+/) : null;
+            return sum + (match ? parseInt(match[0]) : 60);
+          }, 0) || 60;
+        }
+        bookingsBySp[b.specialist_id].push({ start: bStart, duration: bDuration });
+      });
+
+      let finalSpecialistId = null;
+
+      if (selectedSpecialist && selectedSpecialist.id) {
+        // Specific Specialist selected
+        const sp = specialists.find(s => s.id === selectedSpecialist.id);
+        if (!sp) throw new Error('Selected specialist no longer exists.');
+
+        const spSchedule = sp.schedule || {};
+        const daySchedule = spSchedule[dayKey] || defaultOpen;
+
+        if (!daySchedule.enabled) {
+          throw new Error('The specialist is not working on the selected day.');
+        }
+
+        const spStart = hhmmToMinutes(daySchedule.start);
+        const spEnd = hhmmToMinutes(daySchedule.end);
+
+        if (startTimeMins < spStart || endTimeMins > spEnd) {
+          throw new Error('The selected time falls outside of the specialist\'s working hours.');
+        }
+
+        const spBookings = bookingsBySp[sp.id] || [];
+        const isOverlapping = spBookings.some(b => {
+          return !(endTimeMins <= b.start || startTimeMins >= b.start + b.duration);
+        });
+
+        if (isOverlapping) {
+          alert('We\'re sorry, this slot was just booked by someone else. Please go back and select a new time.');
+          setIsProcessing(false);
+          return;
+        }
+
+        finalSpecialistId = sp.id;
+      } else {
+        // "Any Specialist" selected -> find first available specialist
+        const availableSp = specialists.find(sp => {
+          const spSchedule = sp.schedule || {};
+          const daySchedule = spSchedule[dayKey] || defaultOpen;
+
+          if (!daySchedule.enabled) return false;
+
+          const spStart = hhmmToMinutes(daySchedule.start);
+          const spEnd = hhmmToMinutes(daySchedule.end);
+
+          if (startTimeMins < spStart || endTimeMins > spEnd) return false;
+
+          const spBookings = bookingsBySp[sp.id] || [];
+          const isOverlapping = spBookings.some(b => {
+            return !(endTimeMins <= b.start || startTimeMins >= b.start + b.duration);
+          });
+
+          return !isOverlapping;
+        });
+
+        if (!availableSp) {
+          alert('We\'re sorry, no specialists are available at this time. Please go back and select a different slot.');
+          setIsProcessing(false);
+          return;
+        }
+
+        finalSpecialistId = availableSp.id;
+      }
+
       const bookingData = {
         salon_id: id,
-        specialist_id: (selectedSpecialist && selectedSpecialist.id && selectedSpecialist.name !== 'Any Specialist') ? selectedSpecialist.id : null,
+        specialist_id: finalSpecialistId,
         selected_services: selectedServices,
         booking_date: bookingDateDb,
         booking_time: selectedTime || '12:00 PM',
         client_name: clientInfo.name,
-        client_email: clientInfo.email,
+        client_email: clientInfo.email.trim().toLowerCase(),
         client_phone: clientInfo.phone,
         notes: clientInfo.notes || '',
         total_price: totalAmount,
@@ -193,7 +318,7 @@ const ConfirmBookingPage = () => {
                   <input
                     className="w-full bg-surface-container-low border-0 border-b border-outline-variant focus:border-primary focus:ring-0 transition-colors py-3 px-0 font-body-md text-on-surface outline-none"
                     id="phone"
-                    placeholder="+1 (555) 000-0000"
+                    placeholder={PHONE_PLACEHOLDER}
                     type="tel"
                     required
                     value={clientInfo.phone}
@@ -277,7 +402,7 @@ const ConfirmBookingPage = () => {
                         <p className="font-headline-md text-[18px] text-on-surface leading-snug">{svc.name}</p>
                         <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">{svc.duration} Minutes</p>
                       </div>
-                      <span className="font-headline-md text-[18px] text-primary flex-shrink-0">${svc.price}</span>
+                      <span className="font-headline-md text-[18px] text-primary flex-shrink-0">{formatPrice(svc.price)}</span>
                     </div>
                   ))}
                   {selectedServices.length === 0 && (
@@ -329,7 +454,7 @@ const ConfirmBookingPage = () => {
                 {/* Total */}
                 <div className="bg-surface-container p-4 rounded-lg flex justify-between items-center">
                   <span className="font-label-lg text-label-lg text-on-surface font-semibold">Total Amount</span>
-                  <span className="font-headline-lg text-headline-lg text-primary font-bold">${totalAmount.toFixed(2)}</span>
+                  <span className="font-headline-lg text-headline-lg text-primary font-bold">{formatPrice(totalAmount)}</span>
                 </div>
 
                 {/* Confirm Action Button */}
